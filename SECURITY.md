@@ -12,5 +12,5 @@ Include the revision, affected component, sanitized configuration, reproduction
 steps using synthetic data and observed impact. Never attach live credentials,
 other people's files, transcripts or an unredacted database.
 
-See [architecture](https://github.com/zkmkarlsruhe/agent-workspace-docs/blob/main/docs/architecture.md) and [privacy](https://github.com/zkmkarlsruhe/agent-workspace-docs/blob/main/docs/privacy.md) for boundaries
+See [architecture](https://zkmkarlsruhe.github.io/agent-workspace-docs/architecture/) and [privacy](https://zkmkarlsruhe.github.io/agent-workspace-docs/privacy/) for boundaries
 and retention limits. Reporting does not guarantee a response or fix.

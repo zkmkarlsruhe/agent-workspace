@@ -21,7 +21,7 @@ configurable trusted headers. The manager derives a 64-hex internal UID from
 issuer/subject only when the UID header is absent or `OC_IDENTITY_HEADER_UID=-`;
 a present malformed UID is rejected. Stored account keys remain unchanged. The
 [oauth2-proxy overlay](../deploy/example/compose.oauth2-proxy.example.yaml) provides
-an alternate recipe. See [Bring your own OIDC provider](https://github.com/zkmkarlsruhe/agent-workspace-docs/blob/main/docs/IDENTITY.md#bring-your-own-oidc-provider)
+an alternate recipe. See [Bring your own OIDC provider](https://zkmkarlsruhe.github.io/agent-workspace-docs/IDENTITY/#bring-your-own-oidc-provider)
 for claims, group gates, callbacks, logout, acceptance tests and the separate
 existing-account migration procedure. The default example uses local Authentik
 users and needs no institutional directory.
@@ -201,7 +201,7 @@ LiteLLM key and meters requests. The daily cap is an estimate, not a billing
 guarantee from the upstream provider.
 
 A direct OpenAI-compatible model endpoint is also supported. Follow
-[Connect a model provider](https://github.com/zkmkarlsruhe/agent-workspace-docs/blob/main/docs/connect-provider.md) (source tree:
+[Connect a model provider](https://zkmkarlsruhe.github.io/agent-workspace-docs/connect-provider/) (source tree:
 `docs/public/connect-provider.md`) and the commented manager
 alternative in Compose. `OC_LLM_UPSTREAM_URL`/`OC_LLM_UPSTREAM_KEY` configure the
 model API; `OC_MCP_UPSTREAM_URL`/`OC_MCP_UPSTREAM_KEY` configure the optional central
@@ -554,13 +554,13 @@ A changed definition does not upgrade old project pins. Use a new project after 
 
 An operator must register the existing central MCP, review its tool allowlist and source instructions, then reference that source ID in `knowledge_sources`. Upstream credentials stay at the gateway. Instance enablement, operator grants and native tool policy remain required.
 
-[The MCP guide](https://github.com/zkmkarlsruhe/agent-workspace-docs/blob/main/docs/mcp-server.md) uses the application's Go MCP example and explains central gateway registration and assistant source grants. It does not establish strict read-only execution isolation. Current assistants share the person's runtime; their prompts and permissions are not a separate security boundary.
+[The MCP guide](https://zkmkarlsruhe.github.io/agent-workspace-docs/mcp-server/) uses the application's Go MCP example and explains central gateway registration and assistant source grants. It does not establish strict read-only execution isolation. Current assistants share the person's runtime; their prompts and permissions are not a separate security boundary.
 
 ## Optional: build and connect an MCP server
 
 The optional [hello overlay](../deploy/example/mcp-hello) supplies a locally built
 streamable-HTTP service, LiteLLM registration, catalog entry and operator manifest.
-Follow [the MCP guide](https://github.com/zkmkarlsruhe/agent-workspace-docs/blob/main/docs/mcp-server.md) for the instance diff, rendering, Compose
+Follow [the MCP guide](https://zkmkarlsruhe.github.io/agent-workspace-docs/mcp-server/) for the instance diff, rendering, Compose
 commands, secret placement, opt-in and the read-only assistant variant.
 
 `OC_INTEGRATIONS_DIR` defaults to empty (embedded manifests only). Set it to the
@@ -663,9 +663,9 @@ The alternate overlay defaults to `workspace-users` and `workspace-admins`;
 admins need both groups. Disable administration separately from ordinary access.
 
 For a new external-OIDC installation, complete sections 1–3 and base `.env`
-preparation, then follow the [alternate recipe](https://github.com/zkmkarlsruhe/agent-workspace-docs/blob/main/docs/IDENTITY.md#oauth2-proxy-recipe-new-installation)
+preparation, then follow the [alternate recipe](https://zkmkarlsruhe.github.io/agent-workspace-docs/IDENTITY/#oauth2-proxy-recipe-new-installation)
 instead of starting/bootstrapping Authentik. The overlay selects a second Traefik
 file and manager header mapping; no code edits are required. Callback and sign-out
 routes belong to the auth proxy and never bypass consent inside the manager.
 Changing issuer/subject settings on an existing installation requires the reviewed
-[migration procedure](https://github.com/zkmkarlsruhe/agent-workspace-docs/blob/main/docs/IDENTITY.md#migration-of-existing-accounts), not a fresh-install switch.
+[migration procedure](https://zkmkarlsruhe.github.io/agent-workspace-docs/IDENTITY/#migration-of-existing-accounts), not a fresh-install switch.

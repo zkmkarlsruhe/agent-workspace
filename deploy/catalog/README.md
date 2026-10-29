@@ -10,5 +10,5 @@ The minimal installation mounts an empty catalog. To enable entries, deploy
 this directory at the instance catalog mount and configure the manager's
 catalog directory. Source files alone do not activate tools.
 
-See [MCP registration](https://github.com/zkmkarlsruhe/agent-workspace-docs/blob/main/docs/mcp-server.md) and
-[instance configuration](https://github.com/zkmkarlsruhe/agent-workspace-docs/blob/main/docs/instance.md).
+See [MCP registration](https://zkmkarlsruhe.github.io/agent-workspace-docs/mcp-server/) and
+[instance configuration](https://zkmkarlsruhe.github.io/agent-workspace-docs/instance/).

@@ -49,7 +49,7 @@ go test ./...
 Format changed Go files until `gofmt -l` produces no output. Run relevant
 configuration, catalog or runtime checks when touching those components.
 For deployment changes, follow the acceptance sequence in
-[docs/INSTALL.md](docs/INSTALL.md): login, create a project, chat, download the
+[docs/INSTALL.md](https://zkmkarlsruhe.github.io/agent-workspace-docs/INSTALL/): login, create a project, chat, download the
 actual result and verify persistence. A successful build or health endpoint
 alone does not verify that sequence.
 

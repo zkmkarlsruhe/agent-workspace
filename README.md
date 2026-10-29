@@ -23,7 +23,7 @@ Privacy and Delete account. Environment controls remain accessible through Help.
 Assistants use `/assistants` and `/new?assistant=<id>`; personal settings use
 `/settings`; Capabilities keeps `/tools`. Old links and form parameters remain
 compatible. Instance definitions now use `assistants:`; `profiles:` is accepted
-for one release with a deprecation warning. See [instance naming and compatibility](https://github.com/zkmkarlsruhe/agent-workspace-docs/blob/main/docs/instance.md).
+for one release with a deprecation warning. See [instance naming and compatibility](https://zkmkarlsruhe.github.io/agent-workspace-docs/instance/).
 
 ## What it provides
 
@@ -57,12 +57,12 @@ files and runtime state live on quota-controlled host storage. Runtimes have
 private networks and restricted egress. Model credentials remain outside
 them. Containers share the host kernel; this is not VM isolation.
 
-Read the [architecture](https://github.com/zkmkarlsruhe/agent-workspace-docs/blob/main/docs/architecture.md), [privacy and retention
-behavior](https://github.com/zkmkarlsruhe/agent-workspace-docs/blob/main/docs/privacy.md), and [architecture decisions](https://github.com/zkmkarlsruhe/agent-workspace-docs/blob/main/docs/architecture.md#decisions).
+Read the [architecture](https://zkmkarlsruhe.github.io/agent-workspace-docs/architecture/), [privacy and retention
+behavior](https://zkmkarlsruhe.github.io/agent-workspace-docs/privacy/), and [architecture decisions](https://zkmkarlsruhe.github.io/agent-workspace-docs/architecture/#decisions).
 
 ## Quick start
 
-Follow [docs/INSTALL.md](docs/INSTALL.md) on a new amd64 Linux VM. The guide
+Follow [docs/INSTALL.md](https://zkmkarlsruhe.github.io/agent-workspace-docs/INSTALL/) on a new amd64 Linux VM. The guide
 uses Docker Compose, Traefik, Authentik and LiteLLM, and builds the manager
 and runtime locally. It does not require a published image registry.
 
@@ -86,5 +86,6 @@ Released under the [MIT License](LICENSE). Third-party components retain their o
 See [CONTRIBUTING.md](CONTRIBUTING.md) for DCO sign-off and checks, and
 [SECURITY.md](SECURITY.md) for vulnerability reporting.
 
-This is the code repository. Adopter guides and architecture decisions live in the
-[documentation repository](https://github.com/zkmkarlsruhe/agent-workspace-docs/blob/main/README.md).
+This is the code repository. Adopter guides and architecture decisions are on the
+[documentation site](https://zkmkarlsruhe.github.io/agent-workspace-docs/), with sources in the
+[documentation repository](https://github.com/zkmkarlsruhe/agent-workspace-docs).
