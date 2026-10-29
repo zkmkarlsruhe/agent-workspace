@@ -3,7 +3,6 @@
 package main
 
 import (
-	"context"
 	"net/http"
 	"slices"
 	"strings"
@@ -25,13 +24,7 @@ func TestWatchdogE2E(t *testing.T) {
 	s.oc.Sessions = append(s.oc.Sessions, ocapi.Session{ID: "ses_child", ParentID: parent, Title: "Research",
 		Location: ocapi.Location{Directory: "/workspace/" + project}})
 	s.oc.Mu.Unlock()
-	ctx, cancel := context.WithCancel(context.Background())
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-		s.svc.WatchdogLoop(ctx)
-	}()
-	t.Cleanup(func() { cancel(); <-done })
+	s.workers.Go(func() { s.svc.WatchdogLoop(s.ctx) })
 	waitWatchdog(t, func() bool { return s.oc.EventReaders() == 1 })
 	s.oc.Emit("session.execution.started", map[string]any{"sessionID": parent})
 	s.oc.Emit("session.execution.started", map[string]any{"sessionID": "ses_child"})

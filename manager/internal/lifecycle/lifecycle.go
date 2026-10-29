@@ -64,6 +64,10 @@ type running struct {
 }
 
 type Service struct {
+	background context.Context
+	cancel     context.CancelFunc
+	workers    sync.WaitGroup
+
 	networkDeferred sync.Map // log a pending migration once per network
 
 	cfg  config.Config
@@ -125,7 +129,9 @@ type Service struct {
 }
 
 func New(cfg config.Config, rt runtime.Runtime, st *store.Store, log *slog.Logger) *Service {
+	ctx, cancel := context.WithCancel(context.Background())
 	return &Service{
+		background: ctx, cancel: cancel,
 		cfg: cfg, rt: rt, st: st, log: log,
 		http:          &http.Client{Timeout: 30 * time.Second},
 		now:           time.Now,
@@ -142,6 +148,15 @@ func New(cfg config.Config, rt runtime.Runtime, st *store.Store, log *slog.Logge
 			return "http://" + cfg.SlotAddr(slot, config.HostUser).String() + ":4096"
 		},
 	}
+}
+
+// Close cancels and waits for background starts and container checks. Callers
+// must stop serving requests and join externally started loops before Close.
+func (s *Service) Close() {
+	s.mu.Lock()
+	s.cancel()
+	s.mu.Unlock()
+	s.workers.Wait()
 }
 
 // Password derives the OpenCode password of one container generation; it is

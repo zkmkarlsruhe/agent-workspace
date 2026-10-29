@@ -13,6 +13,36 @@ import (
 
 const uid2 = "288992ff55666970b6ddc030565d3c4c9452a9543cc3718d1b1ad5e52523ece4"
 
+func TestCloseWaitsForBackgroundStart(t *testing.T) {
+	e := setupInMemory(t)
+	t.Cleanup(e.s.Close)
+	started, finished := make(chan struct{}), make(chan struct{})
+	e.s.AfterStart = func(ctx context.Context, uid string) {
+		close(started)
+		<-ctx.Done()
+		if ctx.Err() != context.Canceled {
+			t.Error("Close did not cancel the background start")
+		}
+		close(finished)
+	}
+	e.s.StartAsync(context.Background(), uid1)
+	select {
+	case <-started:
+	case <-time.After(5 * time.Second):
+		t.Fatal("background start did not reach AfterStart")
+	}
+	e.s.Close()
+	select {
+	case <-finished:
+	default:
+		t.Fatal("Close returned before AfterStart finished")
+	}
+	e.s.StartAsync(context.Background(), uid2)
+	if _, ok := e.s.starts[uid2]; ok {
+		t.Fatal("StartAsync accepted work after Close")
+	}
+}
+
 func TestMaxRunning(t *testing.T) {
 	e := setup(t)
 	ctx := context.Background()

@@ -18,6 +18,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -35,6 +36,9 @@ import (
 // real lifecycle.Service and store; the runtime runs the file scripts on the
 // host against ws, OpenCode is lctest.OpenCode.
 type stack struct {
+	ctx     context.Context
+	workers sync.WaitGroup
+
 	edge http.Handler
 	svc  *lifecycle.Service
 	st   *store.Store
@@ -91,7 +95,15 @@ func newStack(t testing.TB, netPrefix string, configure ...func(*config.Config))
 		return append([]byte("%PDF-1.4\n% stub\n"), md...), nil
 	}
 	cat := catalogFor(t, rt, svc, st, log)
-	s := &stack{svc: svc, st: st, rt: rt, oc: oc, ws: ws, cat: cat, cfg: cfg, pdf: pdf}
+	ctx, cancel := context.WithCancel(context.Background())
+	s := &stack{ctx: ctx, svc: svc, st: st, rt: rt, oc: oc, ws: ws, cat: cat, cfg: cfg, pdf: pdf}
+	// Register after catalogFor creates its temp dirs: stop writers before removal.
+	t.Cleanup(func() {
+		cancel()
+		s.workers.Wait()
+		svc.Close()
+		rt.Close()
+	})
 	s.buildEdge(t)
 	return s
 }

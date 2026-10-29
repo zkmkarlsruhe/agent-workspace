@@ -565,15 +565,17 @@ type startState struct {
 // StartAsync triggers a start and returns at once; StartState reports progress.
 func (s *Service) StartAsync(rctx context.Context, uid string) {
 	s.mu.Lock()
-	if st := s.starts[uid]; (st != nil && !st.done) || s.run[uid] != nil {
+	if st := s.starts[uid]; s.background.Err() != nil || (st != nil && !st.done) || s.run[uid] != nil {
 		s.mu.Unlock()
 		return
 	}
 	st := &startState{since: s.now()}
 	s.starts[uid] = st
+	s.workers.Add(1)
 	s.mu.Unlock()
 	go func() {
-		ctx, cancel := context.WithTimeout(logx.With(context.Background(), logx.FromContext(rctx)), 30*time.Second)
+		defer s.workers.Done()
+		ctx, cancel := context.WithTimeout(logx.With(s.background, logx.FromContext(rctx)), 30*time.Second)
 		defer cancel()
 		_, err := s.EnsureRunning(ctx, uid)
 		s.mu.Lock()

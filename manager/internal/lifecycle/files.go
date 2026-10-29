@@ -71,7 +71,7 @@ func (s *Service) sh(ctx context.Context, uid, script string, stdin io.Reader, s
 	name := config.SlotContainer(r.slot)
 	c, err := s.rt.Inspect(ctx, name)
 	if err == nil && (c.Labels["oc.uid"] != uid || c.Labels["oc.generation"] != strconv.FormatInt(r.gen, 10)) {
-		go s.Suspect(uid)
+		s.workers.Go(func() { s.Suspect(uid) })
 		return ErrNotRunning
 	}
 	var stderr bytes.Buffer
@@ -83,7 +83,7 @@ func (s *Service) sh(ctx context.Context, uid, script string, stdin io.Reader, s
 	switch {
 	case err != nil && (errors.Is(err, runtime.ErrNotFound) || strings.Contains(err.Error(), "No such container")):
 		// removed from outside: forget it now, the next EnsureRunning starts a fresh one
-		go s.Suspect(uid) // may be called with the person's lock held
+		s.workers.Go(func() { s.Suspect(uid) }) // may be called with the person's lock held
 		return ErrNotRunning
 	case err != nil:
 		return err

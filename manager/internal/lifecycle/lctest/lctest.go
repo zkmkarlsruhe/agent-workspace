@@ -55,11 +55,25 @@ type Runtime struct {
 	// engine does; off, an exec outlives Remove (tests of the drain barrier).
 	KillOnRemove bool
 
+	execs sync.WaitGroup
 	ids   int
 	procs map[string][]int // process groups of execs per container name, killed by Remove
 }
 
 func NewRuntime() *Runtime { return &Runtime{Ctrs: map[string]*runtime.Container{}} }
+
+// Close kills and reaps execs left running after their attach context ended.
+// Callers must stop submitting execs before Close.
+func (f *Runtime) Close() {
+	f.Mu.Lock()
+	for _, groups := range f.procs {
+		for _, pg := range groups {
+			syscall.Kill(-pg, syscall.SIGKILL)
+		}
+	}
+	f.Mu.Unlock()
+	f.execs.Wait()
+}
 
 func (f *Runtime) Ping(context.Context) error { return nil }
 func (f *Runtime) EnsureNetwork(_ context.Context, n string, p netip.Prefix, gatewayMode string) error {
@@ -229,7 +243,9 @@ func (f *Runtime) Exec(ctx context.Context, name string, cmd []string, stdin io.
 	f.procs[name] = append(f.procs[name], pg)
 	f.Mu.Unlock()
 	done := make(chan error, 1)
+	f.execs.Add(1)
 	go func() {
+		defer f.execs.Done()
 		err := c.Wait()
 		f.Mu.Lock()
 		f.procs[name] = slices.DeleteFunc(f.procs[name], func(p int) bool { return p == pg }) // never kill a reused group id
