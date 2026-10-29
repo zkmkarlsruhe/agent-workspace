@@ -48,7 +48,9 @@ jobs:
           go install github.com/zricethezav/gitleaks/v8@v8.30.1
           gitleaks dir . --no-banner --redact --ignore-gitleaks-allow
       - name: Export checks
-        run: python3 -I -B -m unittest discover -s tests/export -v
+        run: |
+          (cd manager && go mod download)
+          python3 -I -B -m unittest discover -s tests/export -v
       - name: Catalog checks
         run: |
           python3 -m venv /tmp/workspace-ci-venv

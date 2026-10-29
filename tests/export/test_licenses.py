@@ -69,12 +69,32 @@ class LicenseTest(unittest.TestCase):
         for module in ({}, {"Error": {"Err": "unavailable"}}, {"Dir": "/missing", "Replace": {"Path": "../local"}}):
             with self.subTest(module=module):
                 listed = json.dumps({"Path": "example.org/dependency", "Version": "v1.0.0", **module})
-                with patch("subprocess.check_output", side_effect=[required, listed]):
+                outputs = [required, listed] if module.get("Replace") else [required, listed, "", listed]
+                with patch("subprocess.check_output", side_effect=outputs) as run:
                     with self.assertRaises(ValueError):
                         report(self.root, "go")
+                    self.assertEqual(run.call_count, len(outputs))
         with patch("subprocess.check_output", side_effect=[required, ""]):
             with self.assertRaisesRegex(ValueError, "modules missing"):
                 report(self.root, "go")
+
+    def test_missing_module_downloaded_once(self):
+        report = self.script()["report"]
+        module = {"Path": "example.org/dependency", "Version": "v1.0.0"}
+        required = json.dumps({"Require": [module]})
+        with tempfile.TemporaryDirectory() as temp:
+            (Path(temp) / "LICENSE").write_text(
+                "Permission is hereby granted, free of charge. Keep this permission notice.")
+            cached = json.dumps({**module, "Dir": temp})
+            for listed, outputs in ((json.dumps(module), ["", cached]), (cached, [])):
+                with self.subTest(cached=not outputs):
+                    with patch("subprocess.check_output", side_effect=[required, listed, *outputs]) as run:
+                        self.assertIn("| example.org/dependency | v1.0.0 | MIT |", report(self.root, "custom-go"))
+                        downloads = [call for call in run.call_args_list
+                                     if call.args[0] == ["custom-go", "mod", "download"]]
+                        self.assertEqual(len(downloads), int(bool(outputs)))
+                        if downloads:
+                            self.assertEqual(downloads[0].kwargs["cwd"], self.root / "manager")
 
 
 if __name__ == "__main__":

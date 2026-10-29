@@ -71,13 +71,21 @@ def report(root, go):
     required = {m["Path"]: m["Version"] for m in json.loads(run("mod", "edit", "-json"))["Require"]}
     # -e keeps unrelated dependency test/tool metadata errors from hiding go.mod requirements.
     modules = list(json_stream(run("list", "-m", "-e", "-json", "all")))
+    if any(m["Path"] in required and not m.get("Replace")
+           and (m.get("Error") or not m.get("Dir")) for m in modules):
+        print("license-report: module cache incomplete; running go mod download in manager/", file=sys.stderr)
+        run("mod", "download")
+        modules = list(json_stream(run("list", "-m", "-e", "-json", "all")))
     rows = []
     for module in modules:
         name = module["Path"]
         if name not in required:
             continue
-        if module.get("Error") or not module.get("Dir") or module.get("Replace"):
-            raise ValueError(f"{name}: missing module cache or unsupported replacement; run go mod download")
+        if module.get("Replace"):
+            raise ValueError(f"{name}: unsupported module replacement")
+        if module.get("Error") or not module.get("Dir"):
+            raise ValueError(f"{name}: module cache still incomplete after go mod download; "
+                             "run 'cd manager && go mod download' with the same GOMODCACHE and check download errors")
         if module["Version"] != required.pop(name):
             raise ValueError(f"{name}: selected version differs from go.mod")
         rows.append((name, module["Version"], module_licenses(Path(module["Dir"]))))
