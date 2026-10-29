@@ -1,0 +1,44 @@
+{{define "title"}}{{t "Chats – Evaluation"}}{{end}}
+{{define "content"}}
+{{template "admin-nav" "chats"}}
+<div class="page-head">
+  <h1>{{t "Chats"}}</h1>
+  <p class="page-head__lead">{{t "All collected chats of all people by last activity. Chats are only collected from running environments; subtasks appear in the chat as a single line."}}</p>
+</div>
+
+<form class="cluster section" method="get" action="/admin/chats" aria-label="{{t "Filter"}}">
+  <label class="field__label" for="from">{{t "From"}}</label><input class="input" type="date" id="from" name="from" value="{{iso .D.From}}">
+  <label class="field__label" for="to">{{t "To"}}</label><input class="input" type="date" id="to" name="to" value="{{iso .D.To}}">
+  <label class="field__label" for="person">{{t "Person"}}</label>
+  <select class="select" id="person" name="person"><option value="">{{t "all"}}</option>{{range .D.Persons}}<option{{if eq . $.D.Person}} selected{{end}}>{{.}}</option>{{end}}</select>
+  <label class="field__label" for="flag">{{t "Flag"}}</label>
+  <select class="select" id="flag" name="flag"><option value="">{{t "all"}}</option>{{range .D.Flags}}<option value="{{.}}"{{if eq . $.D.Flag}} selected{{end}}>{{flaglabel .}}</option>{{end}}</select>
+  <button class="btn btn--small" type="submit">{{t "Show"}}</button>
+</form>
+
+{{if .D.Truncated}}<p class="notice">{{t "Chat limit reached; filters and totals cover only the newest 500 chats."}}</p>{{end}}
+{{with .D.Chats}}
+<p class="small muted">{{t "%d chats, %s in total, %d tool errors." (len .) (eur $.D.CostEUR) $.D.ToolErrors}}</p>
+<div class="table-wrap page-wide">
+  <table class="table table--stack">
+    <thead><tr><th scope="col">{{t "Chat"}}</th><th scope="col">{{t "Person"}}</th><th scope="col">{{t "Project"}}</th><th scope="col">{{t "Started"}}</th><th scope="col">{{t "Last active"}}</th><th scope="col" class="num">{{t "Cost"}}</th><th scope="col" class="num">{{t "Tool errors"}}</th><th scope="col">{{t "Flags"}}</th></tr></thead>
+    <tbody>
+    {{range .}}
+      <tr>
+        <th scope="row"><a href="/admin/chats/{{.SessionID}}">{{or .Title (t "Untitled")}}</a>{{with .E}}<br><span class="small muted">{{.Topic}}</span>{{end}}</th>
+        <td data-label="{{t "Person"}}">{{or .DisplayName .Username}}<br><span class="small muted">{{.Username}}</span></td>
+        <td data-label="{{t "Project"}}">{{.Project}}</td>
+        <td data-label="{{t "Started"}}">{{datetime .Created}}</td>
+        <td data-label="{{t "Last active"}}">{{datetime .Updated}}</td>
+        <td class="num" data-label="{{t "Cost"}}">{{eur .CostEUR}}</td>
+        <td class="num" data-label="{{t "Tool errors"}}">{{.ToolErrors}}</td>
+        <td data-label="{{t "Flags"}}">{{template "flags" .Flags}}</td>
+      </tr>
+    {{end}}
+    </tbody>
+  </table>
+</div>
+{{else}}
+<p class="empty muted">{{t "No chats in this period."}}</p>
+{{end}}
+{{end}}

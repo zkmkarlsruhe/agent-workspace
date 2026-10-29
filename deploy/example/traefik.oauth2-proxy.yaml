@@ -1,0 +1,44 @@
+# OIDC callbacks and logout belong to the auth proxy, never to the manager.
+http:
+  routers:
+    oauth2:
+      rule: '(Host(`{{ env "OC_DOMAIN" }}`) || HostRegexp(`^[a-z0-9-]+\.{{ env "OC_DOMAIN" | replace "." "\\." }}$`)) && PathPrefix(`/oauth2/`)'
+      entryPoints: [websecure]
+      priority: 200
+      tls: {}
+      service: oauth2-proxy
+    workspace:
+      rule: 'Host(`{{ env "OC_DOMAIN" }}`) || HostRegexp(`^[a-z0-9-]+\.{{ env "OC_DOMAIN" | replace "." "\\." }}$`)'
+      entryPoints: [websecure]
+      priority: 100
+      tls: {}
+      middlewares: [authenticate]
+      service: workspace
+  middlewares:
+    authenticate:
+      forwardAuth:
+        # Root + static://202 provides login redirects; /oauth2/auth only returns 401.
+        address: http://oauth2-proxy:4180/
+        trustForwardHeader: false
+        authRequestHeaders: [Cookie]
+        authResponseHeaders:
+          - X-Auth-Request-User
+          - X-Auth-Request-Email
+          - X-Auth-Request-Groups
+          - X-Auth-Request-Preferred-Username
+        # Remove client values even when the proxy omits an optional claim.
+        authResponseHeadersRegex: '(?i)^(x-auth-request-|x-authentik-)'
+  services:
+    workspace:
+      loadBalancer:
+        servers: [{url: 'http://manager:8080'}]
+    oauth2-proxy:
+      loadBalancer:
+        servers: [{url: 'http://oauth2-proxy:4180'}]
+tls:
+  certificates:
+    - certFile: /certs/fullchain.pem
+      keyFile: /certs/privkey.pem
+  options:
+    default:
+      minVersion: VersionTLS12

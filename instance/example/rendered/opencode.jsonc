@@ -1,0 +1,101 @@
+// release: opencode-2.2.0 2026-10-27
+// Admin config for all user containers, mounted read-only at /etc/opencode (docs/adr/README.md §3.2-3.4).
+// The first line identifies the content release; comment-only changes do not trigger config.updated.
+{
+  "$schema": "https://opencode.ai/config.json",
+  "providers": {
+    "litellm": {
+      "name": "Example AI",
+      "package": "aisdk:@ai-sdk/openai-compatible",
+      "compatibility": { "maxTokensField": "max_tokens" },
+      // keyless: llm-gw sets the key and the end user (D15, D16); timeouts match nginx proxy_read_timeout 620 s
+      "settings": { "baseURL": "http://llm-gw:4000/v1", "headerTimeout": 620000, "chunkTimeout": 300000 },
+      "models": {
+        // cost in USD per 1M tokens at a fixed rate 1 EUR = 1.10 USD (D38); EUR prices from docs/adr/README.md
+        // limit.context = smallest window of the LiteLLM fallback chain (docs/adr/README.md §3.2)
+        // family: one distinct value per model, so the web UI keeps every model in the picker (modelfix.go)
+        // standard: 262k, fallback see provider
+        "standard": { "modelID": "default", "cost": { "input": 0.66, "output": 3.96 },
+          "variants": [{"body":{"max_tokens":2048,"temperature":0.2,"top_p":1},"id":"profile-it-hilfe"},{"body":{"max_tokens":4096,"temperature":0.3,"top_p":1},"id":"profile-research"}], "family": "workspace-standard", "name": "Standard",
+          "limit": { "context": 262144, "output": 32768 },
+          "capabilities": { "tools": true, "input": ["text", "image"] } },
+        // fast: 131k, fallback see provider
+        "fast": { "modelID": "small", "cost": { "input": 0.11, "output": 0.33 },
+           "family": "workspace-fast", "name": "Fast and cheap",
+          "limit": { "context": 131072, "output": 16384 },
+          "capabilities": { "tools": true, "input": ["text", "image"] } },
+        // thorough: 524k, fallback see provider
+        "thorough": { "modelID": "thorough", "cost": { "input": 0.0154, "output": 1.254 },
+           "family": "workspace-thorough", "name": "Thorough",
+          "limit": { "context": 262144, "output": 16384 },
+          "capabilities": { "tools": true, "input": ["text", "image"] } }
+      }
+    }
+  },
+  "model": "litellm/standard",
+  "default_agent": "helper",
+  "agents": {
+    "title": { "model": "litellm/fast" },
+    "plan": { "disabled": true },
+    "build": { "description": "Pro mode: programming with all tools" }
+  },
+  // relative pattern is searched upwards to the project root (the git init folder, D11)
+  // .project/nextcloud.md: written by the manager while the project is linked to Nextcloud or has collections
+  "instructions": ["/etc/opencode/AGENTS.md", ".project/brief.md", ".project/nextcloud.md"],
+  // listed again in the managed array so base skills win over user skills with the same id
+  "skills": ["/etc/opencode/skills"],
+  // Example-MCP in the manager on the llm-gw listener (no proxy, identity from the source network).
+  // codemode off: direct tool calls, so the agent permissions below apply per tool.
+  "mcp": {
+    "servers": {
+    }
+  },
+  // TODO: "references": { "vorlagen": { "path": "/opt/workspace/vorlagen", "description": "..." } } once the content exists (docs/adr/README.md §3.9)
+  "websearch": false,
+  "snapshots": true,
+  "formatter": false,
+  "warming": false,
+  "lsp": false,
+  "compaction": { "auto": true, "keep": { "tokens": 20000 } },
+  "watcher": { "ignore": [".venv/**", "node_modules/**", "__pycache__/**", "work/tmp/**", ".trash/**"] },
+  // permissions are not a lock (user rules come later and win); hard limits are the policies below
+  "permissions": [
+    { "action": "*", "resource": "*", "effect": "allow" },
+    { "action": "read", "resource": "*", "effect": "allow" },
+    // Code mode ("execute") off: the models kept calling tools.workspace.* there, where MCP tools with codemode:false do not exist,
+    // and burnt their steps (alice's sessions 2026-10-16). Every tool is called directly.
+    { "action": "execute", "resource": "*", "effect": "deny" }
+  ],
+  // last match wins, no match = allow, invalid statements are dropped silently with a log warning (docs/adr/README.md §3.3)
+  "policies": [
+    { "action": "provider.use", "resource": "*", "effect": "deny" },
+    { "action": "provider.use", "resource": "litellm", "effect": "allow" },
+    // D51: only catalog MCPs (served by the manager); self-added MCP servers are not loaded
+    { "action": "integration.use", "resource": "mcp:*", "effect": "deny" },
+    { "action": "integration.use", "resource": "mcp:workspace", "effect": "allow" },
+    // D59 (Demo/Test): central MCPs via llm-gw, one per catalog entry of kind mcp-central; the server itself
+    // comes from the person's OPENCODE_CONFIG (written by the manager on opt-in), the gateway checks the opt-in again
+    { "action": "integration.use", "resource": "skill:*", "effect": "allow" },
+    { "action": "integration.use", "resource": "skill:report", "effect": "deny" },
+    { "action": "integration.use", "resource": "plugin:*", "effect": "deny" },
+    // vetted local plugin, OFF: /cost only (an automatic row left pending inbox entries that started model calls); enable only after tests/plugin-active.sh is green
+    { "action": "integration.use", "resource": "plugin:/etc/opencode/plugins/workspace-cost.js", "effect": "deny" },
+    { "action": "tool.use", "resource": "external_directory:*", "effect": "deny" },
+    { "action": "tool.use", "resource": "external_directory:/workspace/*", "effect": "allow" },
+    { "action": "tool.use", "resource": "external_directory:/tmp/opencode/*", "effect": "allow" },
+    { "action": "tool.use", "resource": "external_directory:/home/user/.config/opencode/*", "effect": "allow" },
+    { "action": "tool.use", "resource": "external_directory:/home/user/.local/share/opencode/tool-output/*", "effect": "allow" },
+    { "action": "tool.use", "resource": "external_directory:/home/user/.local/share/opencode/shell/*", "effect": "allow" },
+    { "action": "tool.use", "resource": "external_directory:/etc/opencode/skills/*", "effect": "allow" },
+    { "action": "tool.use", "resource": "external_directory:/opt/workspace/*", "effect": "allow" },
+    { "action": "tool.use", "resource": "edit:/etc/opencode/*", "effect": "deny" },
+    { "action": "tool.use", "resource": "edit:/opt/workspace/*", "effect": "deny" },
+    { "action": "tool.use", "resource": "edit:/home/user/.config/opencode/opencode.json*", "effect": "deny" },
+    { "action": "tool.use", "resource": "edit:/home/user/.config/opencode/catalog.json*", "effect": "deny" },
+    // portal trash /workspace/.trash/<id>: same mount as the projects, so moving there stays an atomic rename
+    { "action": "tool.use", "resource": "edit:/workspace/.trash/*", "effect": "deny" },
+    // web only through the Example-MCP (web_search, web_read): SSRF check, metering, untrusted marking (D29, D30)
+    { "action": "tool.use", "resource": "websearch:*", "effect": "deny" },
+    { "action": "tool.use", "resource": "webfetch:*", "effect": "deny" }
+  ]
+}

@@ -1,0 +1,89 @@
+{{define "title"}}{{t "What would you like to get done?"}}{{end}}
+{{define "content"}}
+{{template "watchdog" .Watchdog}}
+{{with .D.Deleted}}<div class="alert alert--success" role="status">
+  <p>{{t "The project “%s” is in the Trash." .}}</p>
+  {{with $.D.UndoID}}<form method="post" action="/trash/{{.}}/restore"><button class="btn btn--small" type="submit">{{t "Undo"}}</button></form>{{end}}
+</div>{{end}}
+<div class="page-head">
+  <h1>{{t "What would you like to get done?"}}</h1>
+  <p class="page-head__lead">{{t "Describe your task. Your conversation, files and results stay together in a project."}}</p>
+</div>
+
+<form class="form card task-form" method="post" action="/projects/start" enctype="multipart/form-data" data-drop data-brief>
+  {{template "errors" .}}
+  {{with .D.Template.Title}}<div class="alert" role="status"><p>{{t "Template “%s”: %s Replace the parts in square brackets with your details." . $.D.Template.Teaser}}</p></div>{{end}}
+  {{$e := fielderror .Errors "description"}}
+  <div class="field{{if $e}} field--invalid{{end}}">
+    <label class="field__label" for="description">{{t "Your task"}}</label>
+    <span class="field__help" id="description-help">{{t "What result do you need? Add any details that matter (10–1000 characters)."}}</span>
+    <textarea class="textarea" id="description" name="description" rows="5" required minlength="10" maxlength="1000" data-submit-shortcut
+      placeholder="{{t "For example: Analyse the 2025 visitor numbers from the Excel list by month and exhibition and create a chart."}}"
+      aria-describedby="description-help description-shortcut{{if $e}} description-error{{end}}"{{if $e}} aria-invalid="true"{{end}}{{if and .D.Template.ID (not .Errors)}} autofocus{{end}}>{{.D.Description}}</textarea>
+    <p class="field__help" id="description-shortcut">{{t "New line: Enter. Start: Ctrl+Enter or Cmd+Enter."}}</p>
+    <p class="field__error" id="description-error"{{if not $e}} hidden{{end}}>{{$e}}</p>
+  </div>
+  {{with .D.Template.ID}}<input type="hidden" name="template" value="{{.}}">{{end}}
+  {{if .D.Capabilities}}
+  <details class="disclosure capability-picker" id="capability">
+    <summary><span>{{t "Capabilities for this project"}}<span class="field__help capability-picker__summary">{{t "Preselected: %s" .D.CapabilitySummary}}</span></span></summary>
+    <fieldset class="fieldset">
+    <legend class="visually-hidden">{{t "Choose capabilities"}}</legend>
+    <input type="hidden" name="capabilities_present" value="1">
+    <div class="capability-checklist">
+    {{range .D.Capabilities}}<div class="check">
+      <input type="checkbox" id="cap-{{.ID}}" name="capability" value="{{.ID}}"{{if .On}} checked{{end}}>
+      <label for="cap-{{.ID}}">{{.Title}}</label>
+    </div>{{end}}
+    </div>
+    <p class="field__help">{{th "Choose what this project may use. Manage your available capabilities under <a href=\"/tools\">Capabilities</a>."}}</p>
+    </fieldset>
+  </details>
+  {{end}}
+  {{$f := fielderror .Errors "files"}}
+  <div class="field{{if $f}} field--invalid{{end}}">
+    <span class="field__help" id="files-help">{{t "Optional: add spreadsheets, PDFs or other files, up to %s in total. You can also drag files here." (gb .D.MaxUpload)}}</span>
+    <div class="filepick">
+      <input type="file" id="files" name="files" multiple class="filepick__input" aria-describedby="files-help{{if $f}} files-error{{end}}"{{if $f}} aria-invalid="true"{{end}}>
+      <label for="files" class="btn filepick__btn">{{t "Add files"}}</label>
+      <span class="filepick__list" aria-live="polite"></span>
+    </div>
+    {{if .D.FilesLost}}<p class="field__help">{{t "The selected files were not kept. Please select them again."}}</p>{{end}}
+    {{with $f}}<p class="field__error" id="files-error">{{.}}</p>{{end}}
+  </div>
+  {{if .D.Nextcloud}}<div class="check">
+    <input type="checkbox" id="nextcloud" name="nextcloud" value="1" checked aria-describedby="nextcloud-help">
+    <label for="nextcloud">{{t "Store in Nextcloud"}}</label>
+  </div>
+  <p class="field__help" id="nextcloud-help">{{t "Find your results in Nextcloud under “[[nextcloud_root]]”."}}</p>{{end}}
+  <div class="btn-row">
+    <button class="btn btn--primary" type="submit">{{t "Start"}}</button>
+  </div>
+  <p class="field__help">{{t "“Start” opens a new project and sends your task and files."}}</p>
+  {{with .D.Templates}}<p class="task-form__templates small">{{t "Start with a template:"}}
+    {{range $i, $v := .}}{{if $i}} &middot; {{end}}<a href="/?template={{$v.ID}}">{{$v.Title}}</a>{{end}}
+  </p>{{end}}
+</form>
+
+{{if .D.Assistants}}<section class="section page-wide" aria-labelledby="assistants-h">
+  <h2 id="assistants-h">{{t "Assistants"}}</h2>
+  <p>{{t "Get help with a specific topic. Enter your question on a card to begin."}}</p>
+  <div class="assistant-grid">{{range .D.Assistants}}{{template "assistant-card" .}}{{end}}</div>
+</section>{{end}}
+
+<section class="section page-wide" id="karten" aria-labelledby="recent-h"{{if eq .D.Env "starting"}} hx-get="/" hx-select="#karten" hx-target="#karten" hx-swap="outerHTML" hx-trigger="every 2s"{{end}}>
+  <div class="section__head"><h2 id="recent-h">{{t "Recently worked on"}}</h2><a href="/projects">{{t "All projects"}}</a></div>
+  {{if eq .D.Env "stopped"}}<p class="muted">{{t "Opening a conversation takes about 20 seconds while your workspace starts."}}</p>
+  {{else if eq .D.Env "starting"}}<p class="muted" role="status">{{t "Your workspace is starting. Your conversations will be ready in about 20 seconds."}} <a href="/">{{t "Reload"}}</a></p>
+  {{else if eq .D.Env "full"}}<p class="alert alert--warning" role="status">{{t "All places are taken right now, please try again in a few minutes."}}</p>
+  {{else if eq .D.Env "error"}}<div class="alert alert--danger"><p>{{t "Your workspace could not start. Please try again."}}</p><form method="post" action="/environment/start"><button class="btn btn--small" type="submit">{{t "Try again"}}</button></form></div>{{end}}
+  {{with .D.Projects}}<ul class="action-list recent-projects">
+    {{range .}}<li class="project-row">
+      <h3 class="project-row__title"><a href="/projects/{{.Name}}">{{.Name}}</a></h3>
+      <p class="project-row__meta">{{template "badge" .Status}} <span class="muted">{{t "Last activity: %s" (when .LastActivity)}}</span></p>
+      {{if ne .Status "arbeitet"}}{{if soon .TrashAt}}<p class="project-row__desc small muted">{{t "If unused, it moves to the Trash on %s." (date .TrashAt)}}</p>{{end}}{{end}}
+    </li>{{end}}
+  </ul>{{else}}<p class="muted">{{t "No projects yet. Start with a task or an assistant above."}}</p>{{end}}
+</section>
+<p class="small"><a href="/trash">{{t "Trash (%d)" .D.Trash}}</a></p>
+{{end}}

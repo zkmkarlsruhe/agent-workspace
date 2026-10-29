@@ -1,0 +1,33 @@
+{{define "title"}}{{t "Reset environment"}}{{end}}
+{{define "content"}}
+<p class="breadcrumb"><a href="/environment">{{t "My environment"}}</a></p>
+<h1 class="visually-hidden">{{t "Reset environment"}}</h1>
+<dialog class="dialog dialog--inline" open aria-labelledby="reset-h">
+  <form method="post" action="/environment/reset">
+    <div class="dialog__body">
+      <h2 id="reset-h">{{t "Reset environment?"}}</h2>
+      {{template "errors" .}}
+      <div class="consequences">
+        <div class="consequences__keep">
+          <h3>{{t "Will be kept"}}</h3>
+          <ul><li>{{t "Projects and files"}}</li><li>{{t "Chats"}}</li><li>{{t "Your own skills and settings"}}</li><li>{{t "What the helper has remembered"}}</li></ul>
+        </div>
+        <div class="consequences__lose">
+          <h3>{{t "Will be lost"}}</h3>
+          <ul><li>{{t "Programs and packages installed later"}}</li><li>{{t "Cache"}}</li><li>{{t "Running tasks"}}{{with .D.ActiveRuns}} ({{len .}}){{end}}</li></ul>
+        </div>
+      </div>
+      {{$e := fielderror .Errors "understood"}}
+      <div class="check{{if $e}} field--invalid{{end}}">
+        <input type="checkbox" id="understood" name="understood" value="yes" required{{if $e}} aria-invalid="true" aria-describedby="understood-error"{{end}}>
+        <label for="understood">{{t "I understand what will be lost."}}</label>
+        {{with $e}}<p class="field__error" id="understood-error">{{.}}</p>{{end}}
+      </div>
+    </div>
+    <div class="dialog__footer">
+      <a class="btn" href="/environment" data-dialog-close autofocus>{{t "Cancel"}}</a>
+      <button class="btn btn--danger" type="submit">{{t "Reset"}}</button>
+    </div>
+  </form>
+</dialog>
+{{end}}

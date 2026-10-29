@@ -1,0 +1,16 @@
+{{define "title"}}{{t "Privacy notice"}}{{end}}
+{{define "content"}}
+<div class="page-head">
+  <div>
+    <h1>{{t "Privacy notice"}}</h1>
+    <p class="page-head__lead">{{t "This text is a placeholder. The final notice will be agreed with the [[organization]] data protection officer before regular operation."}}</p>
+  </div>
+</div>
+{{template "prototype" .D}}
+<div class="stack">
+  <p>{{th "Whatever you give the helper and whatever it reads in your projects is sent to a language model. The models run at providers that the [[organization]] uses through its AI access <code>[[api_host]]</code>."}}</p>
+  <p>{{t "Your projects, chats and settings are stored on a [[organization]] server. Deleted projects remain in the Trash for 30\u00a0days."}}</p>
+  <p>{{ic "evaluation_privacy"}}</p>
+  <p>{{t "Do not give the helper personal data about other people unless there is a reason to."}}</p>
+</div>
+{{end}}

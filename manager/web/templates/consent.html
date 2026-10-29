@@ -1,0 +1,26 @@
+{{define "title"}}{{t "Please read first"}}{{end}}
+{{define "content"}}
+<article class="consent">
+  <p class="consent__kicker">{{t "Before you start"}}</p>
+  <h1 class="consent__title">{{noticeTitle}}</h1>
+  {{template "errors" .}}
+  <ul class="consent__list">
+    {{range noticePoints}}<li>{{.}}</li>{{end}}
+  </ul>
+  <p>{{th "More on what happens to your data and what the helper can and cannot do: <a href=\"%s\">How this works</a>." "/how-it-works"}}</p>
+  {{with .D.Consented}}<p class="consent__date">{{t "You agreed on %s." .}}</p>{{end}}
+  <form class="consent__form" method="post" action="/consent">
+    <input type="hidden" name="next" value="{{.D.Next}}">
+    {{$e := fielderror .Errors "agree"}}
+    <div class="check consent__check{{if $e}} field--invalid{{end}}">
+      <input type="checkbox" id="agree" name="agree" value="yes" required{{if $e}} aria-invalid="true" aria-describedby="agree-error"{{end}}>
+      <label for="agree">{{t "I have read this and agree."}}</label>
+      {{with $e}}<p class="field__error" id="agree-error">{{.}}</p>{{end}}
+    </div>
+    <div class="btn-row btn-row--stack-mobile">
+      <button class="btn btn--primary" type="submit">{{t "Next"}}</button>
+      <a class="btn btn--quiet" href="/consent/declined">{{t "I do not agree – back"}}</a>
+    </div>
+  </form>
+</article>
+{{end}}

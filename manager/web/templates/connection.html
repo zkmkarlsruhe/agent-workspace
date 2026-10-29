@@ -1,0 +1,33 @@
+{{define "title"}}{{t "Connect to %s" .D.Title}}{{end}}
+{{define "content"}}
+{{$d := .D}}{{$from := ""}}{{if $d.Onboarding}}{{$from = "onboarding"}}{{end}}
+<p class="breadcrumb">{{if $d.Onboarding}}<a href="/onboarding?step=2">{{t "Setup"}}</a>{{else}}<a href="/connections">{{t "Connections"}}</a>{{end}}</p>
+<div class="page-head">
+  <div>
+    <h1>{{t "Connect to %s" $d.Title}}</h1>
+  </div>
+</div>
+{{/* While pending the section reloads itself; the swapped-in section without hx-trigger ends the polling. */}}
+<section class="section" id="flow" aria-live="polite"{{if eq $d.Flow.State "pending"}} hx-get="/connections/{{$d.ID}}{{if $d.Onboarding}}?from=onboarding{{end}}" hx-select="#flow" hx-target="#flow" hx-swap="outerHTML" hx-trigger="every 2s"{{end}}>
+  {{if eq $d.Flow.State "pending"}}
+  <ol>
+    <li><p>{{t "Open the %s sign-in. It opens in a new tab." $d.Title}}</p>
+      <p><a class="btn btn--primary" href="{{$d.Flow.LoginURL}}" target="_blank" rel="noopener noreferrer">{{t "Open %s" $d.Title}}<span class="visually-hidden"> {{t "(new tab)"}}</span></a></p></li>
+    <li><p>{{t "Sign in there with your own account and click “Grant access”. %s shows the device “[[name]]”." $d.Title}}</p></li>
+    <li><p>{{t "Come back here. This page notices by itself when it has worked."}}</p></li>
+  </ol>
+  <p class="muted"><span class="badge badge--working">{{t "waiting for you to sign in"}}</span> {{t "The sign-in is valid for 20\u00a0minutes."}} <a href="/connections/{{$d.ID}}{{if $d.Onboarding}}?from=onboarding{{end}}">{{t "Reload"}}</a></p>
+  {{else if eq $d.Flow.State "done"}}
+  <div class="alert alert--success" role="status">
+    <p>{{th "Connected as <strong>%s</strong>. The helper can now view your Nextcloud folders and fetch files into a project. Tell it, for example: “Fetch the report from my Nextcloud folder Documents.” It only saves its results in your folder “[[nextcloud_root]]”." $d.Login}}</p>
+    <p>{{t "You can close the Nextcloud tab."}}</p>
+    <div class="btn-row">{{if $d.Onboarding}}<a class="btn btn--primary" href="/onboarding?step=3">{{t "Next"}}</a>{{else}}<a class="btn btn--primary" href="/connections">{{t "Done"}}</a>{{end}}</div>
+  </div>
+  {{else}}
+  <div class="alert alert--danger" role="alert">
+    <p>{{template "connection-error" $d.Flow.State}}</p>
+    {{template "connection-buttons" (args $d.Connection $from)}}
+  </div>
+  {{end}}
+</section>
+{{end}}

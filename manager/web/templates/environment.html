@@ -1,0 +1,90 @@
+{{define "title"}}{{t "My environment"}}{{end}}
+{{define "content"}}
+{{template "watchdog" .Watchdog}}
+<div class="page-head">
+  <div>
+    <h1>{{t "My environment"}}</h1>
+    <p class="page-head__lead">{{t "Your environment is the computer on which the helper works for you. It goes to sleep after %d\u00a0minutes without activity and starts automatically when you open a chat or click “New task”. It does not sleep while the helper is working." idleMinutes}}</p>
+  </div>
+</div>
+
+<section class="section" aria-labelledby="zustand-h">
+  <h2 id="zustand-h">{{t "State"}}</h2>
+  <dl class="kv">
+    <dt>{{t "Status"}}</dt><dd>{{template "envbadge" .D.State}}{{if eq .D.State "running"}} {{t "since %s" (clock .D.Since)}}{{end}}</dd>
+    {{if eq .D.State "error"}}{{with .D.ErrorID}}<dt>{{t "Error ID"}}</dt><dd><span class="error-code">{{.}}</span></dd>{{end}}{{end}}
+    {{with .D.ActiveRuns}}<dt>{{t "Running tasks"}}</dt><dd>{{len .}}</dd>{{end}}
+  </dl>
+  {{if .D.DiskQuota}}
+  <div class="meter-block">
+    <div class="meter-block__label"><span id="speicher-l">{{t "Storage"}}</span><span>{{t "%s of %s used" (gb .D.DiskUsed) (gb .D.DiskQuota)}}</span></div>
+    <div class="bar"><meter min="0" max="{{.D.DiskQuota}}" low="{{pct .D.DiskQuota 80}}" high="{{pct .D.DiskQuota 90}}" optimum="0" value="{{.D.DiskUsed}}" aria-labelledby="speicher-l">{{t "%s of %s" (gb .D.DiskUsed) (gb .D.DiskQuota)}}</meter></div>
+  </div>
+  {{end}}
+</section>
+
+<section class="section" aria-labelledby="akt-h">
+  <h2 id="akt-h">{{t "Actions"}}</h2>
+  {{template "errors" .}}
+  <ul class="action-list">
+    {{if eq .D.State "running"}}
+    <li>
+      <div><h3>{{t "Stop"}}</h3><p>{{with .D.ActiveRuns}}{{t "The environment goes to sleep immediately. Running tasks are cancelled (currently %d). Projects and chats are kept." (len .)}}{{else}}{{t "The environment goes to sleep immediately. Running tasks are cancelled. Projects and chats are kept."}}{{end}}</p></div>
+      {{if .D.ActiveRuns}}<a class="btn" href="/environment/stop" data-dialog>{{t "Stop"}}</a>{{else}}<form method="post" action="/environment/stop"><button class="btn" type="submit">{{t "Stop"}}</button></form>{{end}}
+    </li>
+    <li>
+      <div><h3>{{t "Restart"}}</h3><p>{{t "Helps when the helper no longer responds. Running tasks are cancelled. Usually takes a few seconds."}}</p></div>
+      <form method="post" action="/environment/restart"><button class="btn" type="submit">{{t "Restart"}}</button></form>
+    </li>
+    {{else if eq .D.State "starting"}}
+    <li>
+      <div><h3>{{t "Starting"}}</h3><p>{{t "This usually takes a few seconds."}}</p></div>
+      <a class="btn" href="/environment/starting">{{t "View progress"}}</a>
+    </li>
+    {{else}}
+    <li>
+      <div>{{if eq .D.State "full"}}<h3>{{t "Start"}}</h3><p>{{t "All places are taken right now, please try again in a few minutes."}}</p>{{else if eq .D.State "error"}}<h3>{{t "Start again"}}</h3><p>{{t "The last start of your environment failed. Trying again usually helps; if the error persists, give [[team]] the error ID."}}</p>{{else}}<h3>{{t "Start"}}</h3><p>{{t "Starts your environment now. Otherwise this happens automatically when you open a chat or click “New task”."}}</p>{{end}}</div>
+      <form method="post" action="/environment/start"><button class="btn" type="submit">{{if eq .D.State "error"}}{{t "Try again"}}{{else}}{{t "Start"}}{{end}}</button></form>
+    </li>
+    {{end}}
+    <li>
+      <div><h3>{{t "Reset environment"}}</h3><p>{{t "Rebuilds the environment from scratch. Programs installed later are lost. Your projects, chats, settings and data are always kept."}}</p></div>
+      <a class="btn btn--danger-outline" href="/environment/reset" data-dialog>{{t "Reset"}}</a>
+    </li>
+  </ul>
+</section>
+
+{{if or .Setup .Conns}}
+<section class="section" id="einrichten" aria-labelledby="einrichten-h">
+  <h2 id="einrichten-h">{{t "Set up"}}</h2>
+  <ul class="action-list">
+    {{if .Conns}}<li>
+      <div><h3>{{t "Connections"}}</h3><p>{{t "Connect [[name]] to in-house systems, for example your Nextcloud."}}</p></div>
+      <a class="btn" href="/connections">{{t "Connections"}}</a>
+    </li>{{end}}
+    {{if .Setup}}<li>
+      <div><h3>{{t "Setup"}}</h3><p>{{t "The short introduction from your first visit: what the helper can do, connections, first task."}}</p></div>
+      <a class="btn" href="/onboarding">{{t "Restart setup"}}</a>
+    </li>{{end}}
+  </ul>
+</section>
+{{end}}
+
+<section class="section" id="daten" aria-labelledby="daten-h">
+  <h2 id="daten-h">{{t "My data"}}</h2>
+  <ul class="action-list">
+    <li>
+      <div><h3>{{t "Export my data"}}</h3><p>{{t "A ZIP file with all projects and their files, every chat as readable text, and the Trash. If the environment is asleep, it starts for this. With a lot of data the download takes a while."}}</p></div>
+      <a class="btn" href="/environment/export" download>{{t "Export"}}</a>
+    </li>
+  </ul>
+</section>
+
+<section class="section" aria-labelledby="loeschen-h">
+  <div class="alert alert--danger">
+    <h2 class="alert__title" id="loeschen-h">{{t "Delete all my data"}}</h2>
+    <p>{{t "Permanently deletes all projects, files, chats, settings and your environment. This cannot be undone. Export what you want to keep first."}}</p>
+    <div class="btn-row"><a class="btn btn--danger-outline" href="/environment/delete">{{t "Delete all my data"}}</a></div>
+  </div>
+</section>
+{{end}}

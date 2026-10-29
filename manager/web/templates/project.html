@@ -1,0 +1,231 @@
+{{define "title"}}{{.D.Name}}{{end}}
+{{define "content"}}
+{{$p := .D.Name}}
+{{$busy := eq .D.Status "arbeitet"}}
+{{template "watchdog" .Watchdog}}
+{{if or $busy .Watchdog.Rows}}<p><a href="/projects/{{$p}}" hx-get="{{.Watchdog.URL}}" hx-target="#watchdog" hx-swap="outerHTML">{{t "Reload"}}</a></p>{{end}}
+{{$loslegen := and .D.Description (eq .D.Chats 0) (not .D.Latest) (not $busy)}}
+{{$ne := fielderror .Errors "new_name"}}
+{{$hoch := and .D.Uploaded (not .D.NoneSent)}}
+<p class="breadcrumb"><a href="/">{{t "Projects"}}</a></p>
+<div class="page-head">
+  <h1>{{.D.Name}}</h1>
+  {{with .D.Assistant.ID}}<p>{{t "Active assistant"}}: {{.}} &middot; {{t "Revision"}} {{$.D.Assistant.Version}} <code>{{$.D.Assistant.Hash}}</code></p>{{end}}
+  {{with .D.Description}}<p class="page-head__lead">{{.}}</p>{{end}}
+  <div class="page-head__meta">
+    {{template "badge" .D.Status}}
+    <span>{{t "last used %s" (when .D.Last)}}</span>
+    {{if .D.HasFiles}}<span>{{gb .D.SizeBytes}}</span>{{end}}
+    {{if and (not $busy) (soon .D.TrashAt)}}<span>{{t "moves to the Trash on %s" (date .D.TrashAt)}}</span>{{end}}
+  </div>
+  <div class="btn-row">
+    {{template "next" (nextstep .D (not $hoch))}}
+  </div>
+  {{if $loslegen}}<p class="small muted">{{t "The helper receives the description as its first instruction. First put what it needs under “My files”."}}</p>{{end}}
+  {{if not .D.FixedName}}
+  <details class="disclosure rename"{{if $ne}} open{{end}}>
+    <summary>{{t "Change name"}}</summary>
+    <form class="form" method="post" action="/projects/{{$p}}/rename">
+      {{if $ne}}{{template "errors" $}}{{end}}
+      <div class="field{{if $ne}} field--invalid{{end}}">
+        <label class="field__label" for="new_name">{{t "Name"}}</label>
+        <span class="field__help" id="new_name-help">{{t "Lower-case letters, digits and hyphens, at most 50\u00a0characters."}}</span>
+        <input class="input input--mono" id="new_name" name="new_name" value="{{or .D.NewName $p}}" required maxlength="50" autocomplete="off" spellcheck="false" aria-describedby="new_name-help{{if $ne}} new_name-error{{end}}"{{if $ne}} aria-invalid="true"{{end}}>
+        {{with $ne}}<p class="field__error" id="new_name-error">{{.}}</p>{{end}}
+      </div>
+      <button class="btn" type="submit">{{t "Rename"}}</button>
+    </form>
+  </details>
+  {{end}}
+</div>
+{{if .D.Truncated}}<div class="alert" role="status"><p>{{th "The lists are shortened because the project has too many files or folder levels. You get all files with <a href=\"/projects/%s/zip?part=all\">Everything as ZIP</a>." $p}}</p></div>{{end}}
+
+{{if and (not .D.Assistant.ID) (ne .D.Capabilities nil)}}
+<section class="section" id="capabilities" aria-labelledby="capabilities-h">
+  <h2 id="capabilities-h">{{t "Capabilities in this project"}}</h2>
+  <div class="capability-checklist">
+  {{range .D.Capabilities}}
+  <form method="post" action="/projects/{{$p}}/capabilities">
+    <input type="hidden" name="capability" value="{{.ID}}">
+    <input type="hidden" name="on" value="{{if .On}}0{{else}}1{{end}}">
+    <button class="btn btn--small" type="submit" aria-pressed="{{.On}}">{{.Title}}: {{if .On}}{{t "on"}}{{else}}{{t "off"}}{{end}}</button>
+  </form>
+  {{end}}
+  </div>
+</section>
+{{end}}
+
+{{if not .D.Isolated}}
+<section class="section" id="results" aria-labelledby="erg-h">
+  <div class="section__head"><h2 id="erg-h">{{t "Results"}}</h2><div class="btn-row">{{if .D.Results}}<a class="btn btn--small" href="/projects/{{$p}}/zip?part=results">{{t "All as ZIP"}}</a>{{end}}<a class="btn btn--small" href="/projects/{{$p}}/export" download>{{t "Export project"}}</a></div></div>
+  {{with .D.Results}}{{template "files" .}}{{else}}
+  <p class="empty muted">{{t "No results yet. Answers appear in the chat first. If you ask the helper to save something as a file, it appears here for download."}}</p>
+  {{end}}
+</section>
+
+{{with .D.Sync}}
+<section class="section" id="nextcloud" aria-labelledby="nc-h">
+  <div class="section__head"><h2 id="nc-h">Nextcloud</h2>{{if .Linked}}<div class="btn-row"><form method="post" action="/projects/{{$p}}/nextcloud/pull"><button class="btn btn--small" type="submit">{{t "Fetch from Nextcloud"}}</button></form></div>{{end}}</div>
+  {{if .Linked}}
+  <p>{{t "Linked to Nextcloud:"}} <a href="{{.URL}}" target="_blank" rel="noopener">{{.Folder}}/</a>{{if not .Last.IsZero}} &middot; {{t "last transferred %s" (when .Last)}}{{end}}</p>
+  <p class="small muted">{{if .All}}{{t "All files of the project except work in progress appear there a few seconds after the helper has written them."}}{{else}}{{t "All results appear there a few seconds after the helper has written them."}}{{end}} {{t "If you changed something there, “Fetch from Nextcloud” brings your version into the project."}}</p>
+  {{with .Notice}}<div class="alert" role="status"><p>{{.}}</p></div>{{end}}
+  <form method="post" action="/projects/{{$p}}/nextcloud/unlink"><button class="btn btn--small" type="submit">{{t "Unlink"}}</button></form>
+  {{else if .Connected}}
+  <p class="muted">{{t "Store the results of this project in your Nextcloud. You can watch the helper write them there and share them with colleagues."}}</p>
+  <form method="post" action="/projects/{{$p}}/nextcloud/link">
+    <div class="check">
+      <input type="checkbox" id="nc-all" name="all" value="1">
+      <label for="nc-all">{{t "Also my files and everything except work in progress"}}</label>
+    </div>
+    <button class="btn" type="submit">{{t "Store in Nextcloud"}}</button>
+  </form>
+  {{else}}
+  <p class="muted">{{th "First connect your Nextcloud under <a href=\"/connections\">Connections</a>. You can then store the project there and link collections."}}</p>
+  {{end}}
+  {{if .Connected}}
+  <details class="disclosure fold"{{if .Collections}} open{{end}}>
+    <summary><h3>{{t "Collections"}}</h3></summary>
+    <p class="small muted">{{t "Folders in your Nextcloud, including those colleagues have shared with you, that the helper may search and read in this project. It never writes or deletes there; it only writes into your folder “[[nextcloud_root]]”."}}</p>
+    {{with .Collections}}<ul class="file-list">
+      {{range .}}<li><a class="file-list__name" href="{{.URL}}" target="_blank" rel="noopener">{{.Path}}</a><form method="post" action="/projects/{{$p}}/collections/remove"><input type="hidden" name="path" value="{{.Path}}"><button class="btn btn--small" type="submit">{{t "Remove"}}<span class="visually-hidden">: {{.Path}}</span></button></form></li>{{end}}
+    </ul>{{end}}
+    <form method="post" action="/projects/{{$p}}/collections">
+      <div class="field">
+        <label class="field__label" for="collection-path">{{t "Folder in Nextcloud"}}</label>
+        <span class="field__help" id="collection-help">{{t "As shown under Files in Nextcloud, for example Exhibition 2027/Loan agreements."}}</span>
+        <input class="input" id="collection-path" name="path" required maxlength="1024" autocomplete="off" aria-describedby="collection-help">
+      </div>
+      <button class="btn btn--small" type="submit">{{t "Link collection"}}</button>
+    </form>
+  </details>
+  {{end}}
+</section>
+{{end}}
+
+<section class="section" id="inbox" aria-labelledby="ein-h">
+  <div class="section__head"><h2 id="ein-h">{{t "My files"}}</h2></div>
+  {{with .D.Uploaded}}<div class="alert alert--success" role="status"><p>{{.}}</p>{{if $hoch}}<div class="btn-row">{{template "next" (nextstep $.D true)}}</div>{{end}}</div>{{end}}
+  {{with .D.Inbox}}{{template "files" .}}{{else}}
+  <p class="empty muted">{{th "No files yet. Put here what the helper should read. In the chat you find them under <code>[[folders.inbox]]</code>."}}</p>
+  {{end}}
+  {{$e := fielderror .Errors "files"}}
+  <form class="upload" method="post" action="/projects/{{$p}}/upload" enctype="multipart/form-data" data-autoupload
+    hx-post="/projects/{{$p}}/upload" hx-encoding="multipart/form-data" hx-target="#inbox" hx-select="#inbox" hx-swap="outerHTML">
+    {{if $e}}{{template "errors" $}}{{end}}
+    <div class="card dropzone{{if $e}} field--invalid{{end}}">
+      <div class="filepick"><input type="file" id="files" name="files" multiple class="filepick__input" aria-describedby="files-help{{if $e}} files-error{{end}}"{{if $e}} aria-invalid="true"{{end}}><label for="files" class="btn filepick__btn">{{t "Add files"}}</label><span class="filepick__list" aria-live="polite"></span></div>
+      <span class="field__help" id="files-help">{{t "Or drag them here. At most %s at a time. The helper sees new files when you point them out to it in the chat." (gb .D.MaxUpload)}}</span>
+      {{with $e}}<p class="field__error" id="files-error">{{.}}</p>{{end}}
+      <button class="btn filepick__submit" type="submit">{{t "Upload"}}</button>
+      <ul class="upload-progress" aria-live="polite" hidden>
+        <li>
+          <div class="upload-progress__row"><span>{{t "Uploading"}}</span><span>0&nbsp;%</span></div>
+          <progress class="progress" max="100" value="0">0 %</progress>
+        </li>
+      </ul>
+    </div>
+  </form>
+</section>
+
+{{end}}
+{{if .D.Isolated}}<p><a class="btn" href="/projects/{{$p}}/export" download>{{t "Export project"}}</a></p>{{end}}
+<section class="section page-wide" id="chats" aria-labelledby="chats-h">
+  <div class="section__head"><h2 id="chats-h">{{t "Chats"}}</h2><form method="post" action="/projects/{{$p}}/open" data-once><button class="btn btn--small" type="submit">{{t "New task"}}</button></form></div>
+  {{$aus := and .D.Env (ne .D.Env "running")}}
+  {{if $aus}}<p class="muted">{{if eq .D.Env "starting"}}{{t "Your environment is starting."}}{{else if eq .D.Env "error"}}{{t "Your environment could not start."}}{{else}}{{t "Your environment is asleep."}}{{end}} {{if .D.ChatList}}{{t "The list and the status show the last known state."}}{{else}}{{t "That is why the chats cannot be loaded right now."}}{{end}} {{t "“New task” starts it automatically."}}</p>{{end}}
+  {{with .D.ChatList}}
+  <div class="table-wrap">
+    <table class="table table--stack">
+      <thead>
+        <tr><th scope="col">{{t "Title"}}</th><th scope="col">{{t "Last active"}}</th><th scope="col">{{t "Status"}}</th><th scope="col" class="num">{{t "Usage"}}</th><th scope="col" class="actions"><span class="visually-hidden">{{t "Actions"}}</span></th></tr>
+      </thead>
+      <tbody>
+      {{range .}}
+        <tr>
+          <th scope="row">{{or .Title (t "Untitled")}}</th>
+          <td data-label="{{t "Last active"}}">{{when .Updated}}</td>
+          <td data-label="{{t "Status"}}">{{template "badge" .Status}}</td>
+          <td data-label="{{t "Usage"}}" class="num">{{template "usage-short" .}}</td>
+          <td class="actions"><div class="btn-row"><a class="btn btn--small" href="{{.Link}}">{{t "Continue"}}<span class="visually-hidden">: {{or .Title (t "Untitled")}}</span></a></div></td>
+        </tr>
+      {{end}}
+      </tbody>
+    </table>
+  </div>
+  {{else}}{{if not $aus}}
+  <p class="empty muted">{{if $.D.ArchivedChats}}{{t "No active chats in this project."}}{{else}}{{t "No chats in this project yet. “New task” starts one."}}{{end}}</p>
+  {{end}}{{end}}
+</section>
+
+{{with .D.ArchivedChats}}
+<section class="section" id="archived-chats" aria-labelledby="archived-chats-h">
+  <h2 id="archived-chats-h">{{t "Archived chats"}}</h2>
+  <ul class="file-list">
+    {{range .}}<li><span class="file-list__name">{{or .Title (t "Untitled")}}</span><form method="post" action="/projects/{{$p}}/chats/{{.ID}}/restore"><button class="btn btn--small" type="submit">{{t "Restore"}}<span class="visually-hidden">: {{or .Title (t "Untitled")}}</span></button></form></li>{{end}}
+  </ul>
+</section>
+{{end}}
+
+{{if not .D.Isolated}}<section class="section">
+  <details class="disclosure fold" id="zwischenstaende">
+    <summary class="section__head"><h2>{{t "Work in progress"}}</h2></summary>
+    <p class="muted">{{t "This is where the helper keeps intermediate steps, for example scripts."}}</p>
+    {{with .D.Tree}}{{template "tree" .}}{{else}}<p class="empty muted">{{t "No work in progress yet."}}</p>{{end}}
+    {{if .D.HasFiles}}<p><a class="btn btn--small" href="/projects/{{$p}}/zip?part=all">{{t "Everything as ZIP"}}</a></p>{{end}}
+  </details>
+</section>
+
+{{end}}
+<section class="section">
+  <details class="disclosure fold">
+    <summary class="section__head"><h2>{{t "Usage"}}</h2></summary>
+    <dl class="stats">
+      <div class="card stat"><dt>{{t "30 days"}}</dt><dd>{{template "usage-short" .D}}</dd></div>
+    </dl>
+    <p><a href="/usage">{{t "Usage details"}}</a></p>
+  </details>
+</section>
+
+{{if and .Feedback (not .D.Assistant.ID)}}<section class="section">{{template "feedback-form" $p}}</section>{{end}}
+
+<div class="section btn-row">
+  {{if $busy}}<button type="button" class="btn btn--danger-outline" aria-disabled="true" aria-describedby="lock">{{t "Move to Trash"}}</button>
+  <p class="small muted" id="lock">{{t "Moving to the Trash is only possible once the helper has finished."}}</p>
+  {{else}}<a class="btn btn--danger-outline" href="/projects/{{$p}}/delete" data-dialog>{{t "Move to Trash"}}</a>{{end}}
+</div>
+{{end}}
+
+{{/* next is the one next step: continue the newest chat, give the description as first task, or start a task.
+     Primary only once per page: after an upload the message carries the primary one. */}}
+{{define "next"}}
+{{- $busy := eq .D.Status "arbeitet" -}}
+{{- $c := "btn" -}}{{- if .Primary}}{{$c = "btn btn--primary"}}{{end -}}
+{{- if .D.Latest}}<a class="{{$c}}" href="{{.D.Latest.Link}}">{{t "Continue: %s" (or .D.Latest.Title (t "Untitled"))}}</a>
+{{- else if and .D.Description (eq .D.Chats 0) (not $busy)}}<form method="post" action="/projects/{{.D.Name}}/open" data-once><input type="hidden" name="brief" value="1"><button class="{{$c}}" type="submit">{{if .D.Uploaded}}{{t "Get started now"}}{{else}}{{t "Get started"}}{{end}}</button></form>
+{{- else}}<form method="post" action="/projects/{{.D.Name}}/open" data-once><button class="{{$c}}" type="submit">{{t "New task"}}</button></form>
+{{- end}}
+{{end}}
+
+{{define "files"}}
+<ul class="file-list">
+  {{range .}}
+  <li><a class="file-list__name" href="{{.Href}}" download>{{.Name}}</a>{{if .PDFHref}}<a class="file-list__pdf" href="{{.PDFHref}}" download>{{t "As PDF"}}<span class="visually-hidden">: {{.Name}}</span></a>{{end}}<span class="file-list__meta">{{gb .Size}}</span><span class="file-list__meta">{{when .Modified}}</span></li>
+  {{end}}
+</ul>
+{{end}}
+
+{{define "tree"}}
+<ul class="tree">
+  {{range .}}
+  {{if .Dir}}
+  <li><details class="disclosure tree__dir">
+    <summary><span class="visually-hidden">{{t "Folder"}} </span>{{.Name}}/ <span class="tree__count">{{if eq (len .Children) 1}}{{t "1 item"}}{{else}}{{t "%d items" (len .Children)}}{{end}}</span></summary>
+    {{with .Children}}{{template "tree" .}}{{end}}
+  </details></li>
+  {{else}}
+  <li class="tree__file"><a class="file-list__name" href="{{.Href}}" download>{{.Name}}</a>{{if .PDFHref}}<a class="file-list__pdf" href="{{.PDFHref}}" download>{{t "As PDF"}}<span class="visually-hidden">: {{.Name}}</span></a>{{end}}<span class="file-list__meta">{{gb .Size}}</span><span class="file-list__meta">{{when .Modified}}</span></li>
+  {{end}}
+  {{end}}
+</ul>
+{{end}}

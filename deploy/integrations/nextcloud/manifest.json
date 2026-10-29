@@ -1,0 +1,20 @@
+{
+  "schema": 1,
+  "name": "nextcloud",
+  "version": "0.1.0",
+  "runs": "builtin",
+  "tools": [
+    "list",
+    "fetch",
+    "upload",
+    "search",
+    "pull"
+  ],
+  "scopes": [
+    "workspace:read",
+    "workspace:write"
+  ],
+  "holds_personal_data": true,
+  "health": "optional",
+  "requires_opencode": ">=2.2.0 <2.3"
+}

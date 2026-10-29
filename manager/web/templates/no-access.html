@@ -1,0 +1,16 @@
+{{define "title"}}{{t "No access"}}{{end}}
+{{define "content"}}
+<div class="error-page">
+  <h1>{{t "No access"}}</h1>
+  <div class="alert alert--warning" role="alert">
+    <p class="alert__title">{{t "Your account has not been activated for [[name]]."}}</p>
+    <p>{{t "Access is granted by the [[team]] team."}}</p>
+  </div>
+  <h2>{{t "What you can do"}}</h2>
+  <ol>
+    <li>{{th "Write to the [[team]] team in the Element room <a href=\"%s\">[[support_label]]</a> and ask for access." (iv "support_url")}}</li>
+    <li>{{t "If you have already been activated: sign out once and sign in again."}}</li>
+  </ol>
+  <div class="btn-row"><a class="btn" href="{{logoutURL}}">{{t "Sign out"}}</a></div>
+</div>
+{{end}}

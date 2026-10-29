@@ -1,0 +1,7 @@
+{"items":[
+{"id":"exhibition:1001","content":"Example Exhibition","start":"2026-07-03T22:00:00+00:00","end":"2027-02-21T23:00:00+00:00","group":"exhibitions","url":"https://example.org/exhibitions/example-exhibition","className":"exhibition","extra":{"location":"Room A","location_ids":[101],"lichthof":"A","etage":"Level A"}},
+{"id":"wetter:example:2026-10-14","content":"12–17° · 0.0 mm · 5.1 h Sonne","start":"2026-10-13T22:00:00+00:00","end":"2026-10-14T22:00:00+00:00","group":"wetter","className":"wetter-forecast","extra":{"kind":"forecast","t_max":17.0,"t_min":12.0}},
+{"id":"mrbs:mrbs_11","content":"Anna Test Planning","start":"2026-10-14T08:00:00+00:00","end":"2026-10-14T09:30:00+00:00","group":"mrbs:mrbs_room:101","url":"{{BASE}}/verwaltung/view_entry.php?id=11"},
+{"id":"mrbs:bikes_12","content":"Carla Codename","start":"2026-10-15T06:00:00+00:00","end":"2026-10-15T07:00:00+00:00","group":"mrbs:bikes_room:201","url":"{{BASE}}/bikes/view_entry.php?id=12"},
+{"id":"holidays:BW-2026-10-03","content":"Tag der Deutschen Einheit","start":"2026-10-02T22:00:00+00:00","end":"2026-10-03T22:00:00+00:00","type":"background","className":"holiday-feiertag"}
+]}

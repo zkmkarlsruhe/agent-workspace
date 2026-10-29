@@ -1,0 +1,7 @@
+{{define "title"}}{{t "Assistants"}}{{end}}
+{{define "content"}}
+<div class="page-head"><h1>{{t "Assistants"}}</h1><p class="page-head__lead">{{t "Get help with a specific topic. Enter your question on a card to begin."}}</p></div>
+<div class="assistant-grid page-wide">
+{{range .D.Cards}}{{template "assistant-card" .}}{{else}}<p>{{t "No assistants available."}}</p>{{end}}
+</div>
+{{end}}

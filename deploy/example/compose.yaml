@@ -1,0 +1,230 @@
+name: workspace
+
+x-manager-image: &manager-image ${MANAGER_IMAGE:?set MANAGER_IMAGE}
+x-runtime-image: &runtime-image ${RUNTIME_IMAGE:?set RUNTIME_IMAGE}
+x-authentik-env: &authentik-env
+  AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY:?set AUTHENTIK_SECRET_KEY}
+  AUTHENTIK_POSTGRESQL__HOST: postgres
+  AUTHENTIK_POSTGRESQL__USER: authentik
+  AUTHENTIK_POSTGRESQL__NAME: authentik
+  AUTHENTIK_POSTGRESQL__PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+  AUTHENTIK_ERROR_REPORTING__ENABLED: "false"
+
+services:
+  manager:
+    image: *manager-image
+    build:
+      context: ../../manager
+      dockerfile: ../deploy/example/manager.Dockerfile
+    container_name: workspace-manager
+    restart: unless-stopped
+    depends_on:
+      dockerproxy: {condition: service_started}
+      provision: {condition: service_started}
+      egress: {condition: service_started}
+      runtime-image: {condition: service_completed_successfully}
+      litellm: {condition: service_started}
+    environment:
+      OC_INSTANCE_FILE: /instance/instance.yaml
+      OC_TIMEZONE: ${OC_TIMEZONE:-}
+      OC_DOMAIN: ${OC_DOMAIN:?set OC_DOMAIN}
+      OC_TRUSTED_PROXY_CIDRS: 172.30.0.2/32
+      OC_IDENTITY_ISSUER: ${OC_IDENTITY_ISSUER:?set OC_IDENTITY_ISSUER}
+      OC_IDENTITY_SUBJECT_HEADER: ${OC_IDENTITY_SUBJECT_HEADER:-X-Authentik-Uid}
+      OC_IDENTITY_HEADER_UID: ${OC_IDENTITY_HEADER_UID:-X-Authentik-Uid}
+      OC_IDENTITY_HEADER_USERNAME: ${OC_IDENTITY_HEADER_USERNAME:-X-Authentik-Username}
+      OC_IDENTITY_HEADER_EMAIL: ${OC_IDENTITY_HEADER_EMAIL:-X-Authentik-Email}
+      OC_IDENTITY_HEADER_NAME: ${OC_IDENTITY_HEADER_NAME:-X-Authentik-Name}
+      OC_IDENTITY_HEADER_GROUPS: ${OC_IDENTITY_HEADER_GROUPS:-X-Authentik-Groups}
+      OC_IDENTITY_GROUPS_SEPARATOR: ${OC_IDENTITY_GROUPS_SEPARATOR:-|}
+      OC_LOGOUT_URL: ${OC_LOGOUT_URL:-/outpost.goauthentik.io/sign_out}
+      OC_REQUIRED_GROUP: ${OC_REQUIRED_GROUP:--}
+      OC_ADMIN_GROUP: ${OC_ADMIN_GROUP:--}
+      OC_ADMIN_TOKEN: ${OC_ADMIN_TOKEN:?set OC_ADMIN_TOKEN}
+      DOCKER_HOST: unix:///run/oc-docker/sock
+      OC_PROVISION_SOCKET: /run/oc-provision/sock
+      OC_RUNTIME_IMAGE: *runtime-image
+      OC_MANAGER_CONTAINER: workspace-manager
+      OC_EGRESS_CONTAINER: workspace-egress
+      OC_USERS_ROOT: /srv/opencode/users
+      OC_ADMIN_CONFIG: /srv/opencode/base/etc-opencode
+      OC_CATALOG_DIR: /srv/opencode/base/catalog
+      OC_INTEGRATIONS_DIR: ${OC_INTEGRATIONS_DIR:-} # Empty: embedded manifests only.
+      OC_MASTER_KEY: ${OC_MASTER_KEY:?set OC_MASTER_KEY}
+      OC_MAX_RUNNING: ${OC_MAX_RUNNING:?set OC_MAX_RUNNING}
+      OC_COST_CAP_DAY_EUR: ${OC_COST_CAP_DAY_EUR:?set OC_COST_CAP_DAY_EUR}
+      # none ignores upstream billing amounts and uses configured local estimates.
+      # Set EUR only for an upstream verified to report EUR; USD requires a positive rate.
+      OC_UPSTREAM_COST_CURRENCY: ${OC_UPSTREAM_COST_CURRENCY:-none}
+      OC_USD_PER_EUR: ${OC_USD_PER_EUR:-0}
+      LITELLM_BASE_URL: http://litellm:4000
+      LITELLM_API_KEY: ${LITELLM_MASTER_KEY:?set LITELLM_MASTER_KEY}
+      # Direct model alternative: replace the two LITELLM_* entries above.
+      # Root base only, without /v1. See docs/connect-provider.md.
+      # OC_LLM_UPSTREAM_URL: https://models.example.org
+      # OC_LLM_UPSTREAM_KEY: ${MODEL_API_KEY:?set MODEL_API_KEY}
+      # OC_LLM_UPSTREAM_FLAVOR: openai       # default: litellm
+      # OC_LLM_UPSTREAM_KEYLESS: "false"    # true permits an empty key; omit both key entries for keyless
+      # OC_MCP_UPSTREAM_URL: "-"            # disable; default falls back to LITELLM_BASE_URL
+      # OC_MCP_UPSTREAM_KEY: ${MCP_API_KEY:-} # default falls back to LITELLM_API_KEY
+      # For central tools, replace "-" with a separate LiteLLM MCP broker root URL.
+    volumes:
+      - ../../instance/minimal:/instance:ro
+      - /run/oc-docker:/run/oc-docker
+      - /run/oc-provision:/run/oc-provision
+      - /srv/opencode/base/catalog:/srv/opencode/base/catalog:ro
+      - /srv/opencode/manager:/srv/opencode/manager
+    ports: ["127.0.0.1:9100:9100"]
+    networks:
+      edge: {ipv4_address: 172.30.0.3}
+      models: {}
+
+  dockerproxy:
+    image: *manager-image
+    container_name: workspace-dockerproxy
+    entrypoint: ["/oc-dockerproxy"]
+    restart: unless-stopped
+    userns_mode: host
+    user: "0:0"
+    network_mode: none
+    read_only: true
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    cap_add: [CHOWN]
+    environment:
+      OC_RUNTIME_IMAGE: *runtime-image
+      OC_PROXY_SOCKET: /run/oc-docker/sock
+      OC_PROXY_SOCKET_OWNER: "100000:100000"
+      OC_USERS_ROOT: /srv/opencode/users
+      OC_PROXY_RO_ROOTS: /srv/opencode/base
+      OC_MANAGER_CONTAINER: workspace-manager
+      OC_EGRESS_CONTAINER: workspace-egress
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /run/oc-docker:/run/oc-docker
+
+  provision:
+    image: *manager-image
+    container_name: workspace-provision
+    entrypoint: ["/oc-provision"]
+    command: ["-socket=/run/oc-provision/sock", "-gid=100000", "-base=/srv/opencode/users", "-mount=/srv/opencode"]
+    restart: unless-stopped
+    userns_mode: host
+    user: "0:0"
+    network_mode: none
+    read_only: true
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    cap_add: [CHOWN, FOWNER, DAC_OVERRIDE, SYS_ADMIN]
+    volumes:
+      - /srv/opencode:/srv/opencode
+      - /run/oc-provision:/run/oc-provision
+
+  egress:
+    cap_drop: [ALL]
+    user: "13:13"
+    image: ${SQUID_IMAGE:?set SQUID_IMAGE}
+    container_name: workspace-egress
+    restart: unless-stopped
+    volumes:
+      - ./squid.conf:/etc/squid/squid.conf:ro
+    networks: [egress]
+
+  runtime-image:
+    # Preload only: the manager creates per-person containers from this same ref.
+    image: *runtime-image
+    build: ./runtime
+    entrypoint: ["/bin/true"]
+    restart: "no"
+    network_mode: none
+
+  traefik:
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    image: ${TRAEFIK_IMAGE:?set TRAEFIK_IMAGE}
+    restart: unless-stopped
+    command:
+      - --global.checknewversion=false
+      - --global.sendanonymoususage=false
+      - --entrypoints.web.address=:80
+      - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      - --entrypoints.web.http.redirections.entrypoint.scheme=https
+      - --entrypoints.websecure.address=:443
+      - --entrypoints.websecure.transport.respondingtimeouts.readtimeout=0s
+      - --entrypoints.websecure.transport.respondingtimeouts.writetimeout=0s
+      - --entrypoints.websecure.transport.respondingtimeouts.idletimeout=300s
+      - --providers.file.filename=/etc/traefik/dynamic.yaml
+    environment:
+      OC_DOMAIN: ${OC_DOMAIN:?set OC_DOMAIN}
+    ports: ["80:80", "443:443"]
+    volumes:
+      - ./traefik.yaml:/etc/traefik/dynamic.yaml:ro
+      - ./certs:/certs:ro
+    networks:
+      edge: {ipv4_address: 172.30.0.2}
+
+  postgres:
+    image: ${POSTGRES_IMAGE:?set POSTGRES_IMAGE}
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: authentik
+      POSTGRES_DB: authentik
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+    volumes: ["postgres:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U authentik -d authentik"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [identity]
+
+  authentik:
+    cap_drop: [ALL]
+    image: ${AUTHENTIK_IMAGE:?set AUTHENTIK_IMAGE}
+    command: server
+    restart: unless-stopped
+    depends_on:
+      postgres: {condition: service_healthy}
+    environment: *authentik-env
+    volumes: ["authentik-media:/media"]
+    networks:
+      edge: {ipv4_address: 172.30.0.4}
+      identity: {}
+
+  authentik-worker:
+    cap_drop: [ALL]
+    image: ${AUTHENTIK_IMAGE:?set AUTHENTIK_IMAGE}
+    command: worker
+    restart: unless-stopped
+    depends_on:
+      postgres: {condition: service_healthy}
+    environment: *authentik-env
+    volumes: ["authentik-media:/media"]
+    networks: [identity]
+
+  litellm:
+    cap_drop: [ALL]
+    image: ${LITELLM_IMAGE:?set LITELLM_IMAGE}
+    command: ["--config", "/etc/litellm.yaml", "--port", "4000"]
+    restart: unless-stopped
+    environment:
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:?set LITELLM_MASTER_KEY}
+      MODEL_API_BASE: ${MODEL_API_BASE:?set MODEL_API_BASE}
+      MODEL_API_KEY: ${MODEL_API_KEY:?set MODEL_API_KEY}
+      MODEL_ID: ${MODEL_ID:?set MODEL_ID}
+    volumes:
+      - ./litellm.yaml:/etc/litellm.yaml:ro
+    networks: [models]
+
+volumes:
+  postgres:
+  authentik-media:
+
+networks:
+  edge:
+    ipam:
+      config: [{subnet: 172.30.0.0/29}]
+  identity:
+    internal: true
+  models:
+  egress:

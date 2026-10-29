@@ -1,0 +1,53 @@
+{{define "title"}}{{t "Trash"}}{{end}}
+{{define "content"}}
+<p class="breadcrumb"><a href="/">{{t "My projects"}}</a></p>
+<div class="page-head">
+  <div>
+    <h1>{{t "Trash"}}</h1>
+    <p class="page-head__lead">{{t "Projects you moved to the Trash, or that were not used for 30\u00a0days, stay here for 30\u00a0days. “Restore” brings a project back with all its files and chats. After that, it is deleted permanently. The Trash counts towards your storage."}}</p>
+  </div>
+</div>
+{{template "errors" .}}
+{{with .D.Items}}
+<div class="table-wrap page-wide">
+  <table class="table table--stack">
+    <caption class="visually-hidden">{{t "Projects in the Trash"}}</caption>
+    <thead>
+      <tr><th scope="col">{{t "Project"}}</th><th scope="col">{{t "Deleted on"}}</th><th scope="col">{{t "Deleted permanently on"}}</th><th scope="col" class="num">{{t "Size"}}</th><th scope="col" class="num">{{t "Chats"}}</th><th scope="col" class="actions"><span class="visually-hidden">{{t "Actions"}}</span></th></tr>
+    </thead>
+    <tbody>
+    {{range .}}
+      <tr>
+        <th scope="row">{{.Name}}{{if .Auto}}<span class="small muted"> {{t "(automatically after 30\u00a0days without use)"}}</span>{{end}}</th>
+        <td data-label="{{t "Deleted on"}}">{{date .DeletedAt}}</td>
+        <td data-label="{{t "Deleted permanently on"}}">{{date .PurgeAt}}</td>
+        <td data-label="{{t "Size"}}" class="num">{{if .SizeBytes}}{{gb .SizeBytes}}{{end}}</td>
+        <td data-label="{{t "Chats"}}" class="num">{{.Chats}}</td>
+        <td class="actions"><div class="btn-row">
+          <form class="form" method="post" action="/trash/{{.ID}}/restore">
+            {{if eq .ID $.D.Conflict}}
+            {{$e := fielderror $.Errors "new_name"}}
+            <div class="field{{if $e}} field--invalid{{end}}">
+              <label class="field__label" for="new_name">{{t "New name for “%s”" .Name}}</label>
+              <span class="field__help" id="new_name-help">{{t "Only lower-case letters, digits and hyphens, at most 50 characters."}}</span>
+              <input class="input input--mono" id="new_name" name="new_name" type="text" value="{{$.D.NewName}}" required maxlength="50" pattern="[a-z0-9][a-z0-9\-]*"
+                autocomplete="off" spellcheck="false" aria-describedby="new_name-help{{if $e}} new_name-error{{end}}"{{if $e}} aria-invalid="true"{{end}}>
+              {{with $e}}<p class="field__error" id="new_name-error">{{.}}</p>{{end}}
+            </div>
+            {{end}}
+            <button class="btn btn--small btn--primary" type="submit">{{t "Restore"}}<span class="visually-hidden">: {{.Name}}</span></button>
+          </form>
+          <a class="btn btn--small btn--danger-outline" href="/trash/{{.ID}}/delete" data-dialog>{{t "Delete permanently"}}<span class="visually-hidden">: {{.Name}}</span></a>
+        </div></td>
+      </tr>
+    {{end}}
+    </tbody>
+  </table>
+</div>
+{{else}}
+<div class="empty">
+  <p class="empty__title">{{t "The Trash is empty"}}</p>
+  <p>{{t "Projects you move to the Trash appear here for 30\u00a0days and can be restored."}}</p>
+</div>
+{{end}}
+{{end}}

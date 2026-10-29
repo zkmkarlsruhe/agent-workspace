@@ -1,0 +1,75 @@
+{{define "title"}}{{t "Evaluation"}}{{end}}
+{{define "content"}}
+{{template "admin-nav" "overview"}}
+<div class="page-head">
+  <h1>{{t "Evaluation"}}</h1>
+  <p class="page-head__lead">{{th "Usage per day ([[timezone]]). People, chats, costs and CO<sub>2</sub> include deleted accounts anonymously; tool errors count on the day of a chat’s last activity."}}</p>
+</div>
+
+{{with .D.Blocks}}
+<section class="section" aria-labelledby="identity-h">
+  <h2 id="identity-h">{{t "Blocked accounts"}}</h2>
+  <p>{{t "Rebinding gives the new identity access to all existing data for this username. Verify the account with the administrator of the identity provider first."}}</p>
+  {{range .}}
+  <form method="post" action="/admin/identity/{{.UID}}/release">
+    <p><strong>{{.Username}}</strong>: <code>{{.StoredHash}}</code> &rarr; <code>{{.PendingHash}}</code></p>
+    <input type="hidden" name="subject_hash" value="{{.PendingHash}}">
+    <button class="btn" type="submit">{{t "Rebind username and keep existing data"}}</button>
+  </form>
+  {{end}}
+</section>
+{{end}}
+
+{{if .D.Evaluation}}
+<section class="section page-wide" aria-labelledby="tage-h">
+  <h2 id="tage-h">{{t "Last 14\u00a0days"}}</h2>
+  <div class="table-wrap">
+    <table class="table table--stack">
+      <thead><tr><th scope="col">{{t "Day"}}</th><th scope="col" class="num">{{t "Active people"}}</th><th scope="col" class="num">{{t "Chats"}}</th><th scope="col" class="num">{{t "Cost"}}</th><th scope="col" class="num">CO<sub>2</sub></th><th scope="col" class="num">{{t "Tool errors"}}</th><th scope="col" class="num">{{t "Evaluation itself"}}</th><th scope="col">{{t "Report"}}</th></tr></thead>
+      <tbody>
+      {{range .D.Days}}
+        <tr>
+          <th scope="row">{{zonedate .Day}}</th>
+          <td class="num" data-label="{{t "Active people"}}">{{.People}}</td>
+          <td class="num" data-label="{{t "Chats"}}">{{.Chats}}</td>
+          <td class="num" data-label="{{t "Cost"}}">{{eur .CostEUR}}</td>
+          <td class="num" data-label="CO2">{{co2 .CO2LoG .CO2HiG}}</td>
+          <td class="num" data-label="{{t "Tool errors"}}">{{.ToolErrors}}</td>
+          <td class="num" data-label="{{t "Evaluation itself"}}">{{eur .EvalCostEUR}}</td>
+          <td data-label="{{t "Report"}}"><a href="/admin?day={{iso .Day}}#report">{{t "view"}}</a> &middot; <a href="/admin/chats?from={{iso .Day}}&amp;to={{iso .Day}}">{{t "Chats"}}</a></td>
+        </tr>
+      {{end}}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="section" id="report" aria-labelledby="report-h">
+  <div class="section__head">
+    <h2 id="report-h">{{t "Report for %s" (zonedate .D.Day)}}</h2>
+  </div>
+  <div class="btn-row">
+    <a class="btn btn--small" href="/admin/report?day={{iso .D.Day}}">{{t "Download as Markdown"}}</a>
+    <form method="post" action="/admin/evaluate"><button class="btn btn--small btn--primary" type="submit"{{if .D.Running}} disabled{{end}}>{{t "Evaluate now"}}</button></form>
+  </div>
+  <p class="small muted">
+    {{if .D.Running}}{{t "The evaluation is running."}}
+    {{else if .D.Last.At.IsZero}}{{t "No evaluation has run since the manager started. It runs every day from 3:00 over all new and changed chats."}}
+    {{else}}{{t "Last run %s: %d chats evaluated with AI, %d with heuristics only." (datetime .D.Last.At) .D.Last.LLM .D.Last.Heuristic}}{{with .D.Last.Err}} {{t "Error: %s" .}}{{end}}{{end}}
+  </p>
+  <pre class="card report">{{.D.Report}}</pre>
+</section>
+
+<section class="section page-wide" aria-labelledby="audit-h">
+  <h2 id="audit-h">{{t "Recently read chats"}}</h2>
+  {{with .D.Audit}}
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th scope="col">{{t "When"}}</th><th scope="col">{{t "Who"}}</th><th scope="col">{{t "Chat"}}</th></tr></thead>
+      <tbody>{{range .}}<tr><td>{{datetime .At}}</td><td>{{.AdminName}}</td><td><code>{{.SessionID}}</code></td></tr>{{end}}</tbody>
+    </table>
+  </div>
+  {{else}}<p class="muted">{{t "Nobody has opened a chat yet."}}</p>{{end}}
+</section>
+{{end}}
+{{end}}

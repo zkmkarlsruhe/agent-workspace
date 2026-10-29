@@ -1,0 +1,21 @@
+{
+  "items": [
+    { "id": "web-research", "title": "Search and read the web", "title_de": "Im Web suchen und lesen", "description": "Web search and page reading.",
+      "description_de": "Websuche und Seiten lesen.", "tier": "standard", "category": "research", "server": "workspace", "tools": ["web_search", "web_read"] },
+    { "id": "md-to-pdf", "title": "Create a PDF", "title_de": "Ein PDF erstellen", "description": "Turns a .md into a PDF.",
+      "description_de": "Macht aus einer .md ein PDF.", "tier": "optional", "category": "texts", "server": "workspace", "tools": ["md_to_pdf"] },
+    { "id": "minutes", "title": "Duplicate", "description": "same id as a skill",
+      "tier": "optional", "category": "texts", "server": "workspace", "tools": ["x"] },
+    { "id": "workspace-knowledge", "kind": "mcp-central", "title": "Workspace knowledge", "title_de": "Workspace-Wissen", "description": "Wiki, works, website.",
+      "tier": "optional", "category": "workspace-knowledge", "litellm": ["workspace_kb"], "tools": ["search_workspace_wiki"] },
+    { "id": "central-standard", "kind": "mcp-central", "title": "never standard", "description": "x",
+      "tier": "standard", "category": "research", "litellm": ["a"], "tools": ["b"] },
+    { "id": "media", "kind": "toolbox", "title": "Edit media", "title_de": "Medien bearbeiten", "description": "ffmpeg and friends.",
+      "tier": "optional", "category": "images", "programs": ["ffmpeg", "magick"],
+      "image": "registry.example.org/operations/opencode-tool-medien:2026.10.17.1@sha256:0000000000000000000000000000000000000000000000000000000000000000" },
+    { "id": "toolbox-without-digest", "kind": "toolbox", "title": "x", "description": "x",
+      "tier": "optional", "category": "images", "programs": ["x"], "image": "registry.example.org/operations/x:latest" },
+    { "id": "foreign-kind", "kind": "plugin", "title": "x", "description": "x", "tier": "optional", "category": "images" },
+    { "id": "my-reserved", "title": "x", "description": "x", "tier": "optional", "category": "texts", "server": "workspace", "tools": ["x"] }
+  ]
+}

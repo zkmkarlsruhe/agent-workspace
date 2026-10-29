@@ -1,0 +1,24 @@
+{
+  "title": "Agent Workspace",
+  "description": "Self-hosted multi-user workspace built on OpenCode. Evaluation-only prototype.",
+  "upload_type": "software",
+  "creators": [
+    {
+      "name": "Schütze, Marc",
+      "affiliation": "ZKM | Center for Art and Media Karlsruhe",
+      "orcid": "0009-0007-0718-4251"
+    }
+  ],
+  "license": "MIT",
+  "keywords": [
+    "self-hosted workspace",
+    "museum technology"
+  ],
+  "related_identifiers": [
+    {
+      "identifier": "https://github.com/zkmkarlsruhe/agent-workspace",
+      "relation": "isSupplementTo",
+      "scheme": "url"
+    }
+  ]
+}

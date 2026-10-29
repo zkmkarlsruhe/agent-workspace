@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "name": "hello",
+  "version": "0.1.0",
+  "runs": "service",
+  "enabled_by_default": false,
+  "mcp": "/mcp",
+  "tools": [
+    "hello"
+  ],
+  "holds_personal_data": false,
+  "health": "optional",
+  "limits": {
+    "timeout_s": 10,
+    "concurrency": 2
+  },
+  "owner": {
+    "name": "Example operator",
+    "contact": "ops@example.org"
+  },
+  "kind": "remote"
+}

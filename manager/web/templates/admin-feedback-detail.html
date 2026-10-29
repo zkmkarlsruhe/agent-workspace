@@ -1,0 +1,35 @@
+{{define "title"}}{{t "Feedback – Evaluation"}}{{end}}
+{{define "content"}}
+{{template "admin-nav" "feedback"}}
+<p class="breadcrumb"><a href="/admin/feedback">{{t "Feedback"}}</a></p>
+<div class="page-head">
+  <h1>{{feedbackKind .D.Kind}}: {{or .D.DisplayName .D.Username}}</h1>
+  <p class="page-head__meta">{{if .D.Done}}<span class="badge badge--done">{{t "resolved"}}</span>{{else}}<span class="badge badge--waiting">{{t "open"}}</span>{{end}}</p>
+</div>
+
+<dl class="kv section">
+  <div><dt>{{t "Person"}}</dt><dd>{{or .D.DisplayName .D.Username}} ({{.D.Username}})</dd></div>
+  <div><dt>{{t "Time"}}</dt><dd>{{datetime .D.At}}</dd></div>
+  <div><dt>{{t "Source"}}</dt><dd>{{if eq .D.Source "chat"}}{{t "Chat"}}{{else}}{{t "Portal"}}{{end}}</dd></div>
+  <div><dt>{{t "Project"}}</dt><dd>{{.D.Project}}</dd></div>
+  {{with .D.SessionID}}<div><dt>{{t "Chat ID"}}</dt><dd><a href="/admin/chats/{{.}}"><code>{{.}}</code></a></dd></div>{{end}}
+  {{with .D.Version}}<div><dt>{{t "OpenCode version"}}</dt><dd>{{.}}</dd></div>{{end}}
+</dl>
+
+<section class="section card" aria-labelledby="text-h">
+  <h2 id="text-h" class="card__title">{{t "Text"}}</h2>
+  <p>{{.D.Text}}</p>
+  <form method="post" action="/admin/feedback/{{.D.ID}}/done">
+    <input type="hidden" name="done" value="{{if .D.Done}}0{{else}}1{{end}}">
+    <button class="btn btn--small" type="submit">{{if .D.Done}}{{t "Reopen"}}{{else}}{{t "Mark as done"}}{{end}}</button>
+  </form>
+</section>
+
+{{if .D.Context}}
+<section class="section" aria-labelledby="verlauf-h">
+  <h2 id="verlauf-h">{{t "Last messages"}}</h2>
+  <p class="small muted">{{t "Read from the person's environment when sent: one line per tool call, without reasoning and tool output."}}</p>
+  <div class="card transcript">{{range lines .D.Context}}<div class="transcript__{{.Kind}}">{{.Text}}</div>{{end}}</div>
+</section>
+{{end}}
+{{end}}

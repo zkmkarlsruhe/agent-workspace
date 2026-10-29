@@ -1,0 +1,417 @@
+schema: 1
+timezone: UTC
+# Local estimates in EUR; prices: {} disables chat estimates. Zero disables each flat charge.
+accounting:
+  upstream_cost_currency: none
+  usd_per_eur: 0 # Set a positive rate only when upstream_cost_currency is USD.
+  largest_context: 262144
+  max_output_tokens: 32768
+  prices:
+    standard: {input: 0.60, output: 3.60}
+    fast: {input: 0.60, output: 3.60}
+    thorough: {input: 0.60, output: 3.60}
+  embedding_eur_per_million: 0 # Unknown until configured.
+  image_eur: 0.10
+  mcp_eur: 0.01
+  toolbox_eur: 0.02
+  search_eur: 0.005
+  fetch_eur: 0.002
+sessions:
+  archive_after_days: 0
+capabilities:
+  projects: false
+  project_default: none
+  legacy_default: global
+integrations:
+  evaluation: false
+  feedback: false
+  images: false
+  nextcloud: false
+  pdf: false
+  toolbox: false
+  web-research: false
+  workspace-style: false
+  workspace-rooms: false
+mcp_server: workspace
+values:
+  product: Agent Workspace
+  name: Agent Workspace
+  masthead: Agent
+  masthead_sub: Workspace
+  organization: Example
+  team: Workspace support
+  reviewer: the operator
+  recipient: support
+  support_url: https://example.org/support
+  support_label: support
+  website: example.org
+  api_host: models.example.org
+  domain: apps.example.org
+  export_prefix: workspace-data-
+  profile_marker: agent-workspace
+  brand_id: workspace
+  config_file: catalog.json
+  catalog_mount: /opt/workspace/catalog
+  asset_root: /opt/workspace
+  search_user_agent: Workspace-Research/1.0 (+https://apps.example.org/bot; support@example.org)
+  central_client: workspace-manager
+folders:
+  inbox: inbox
+  results: results
+  work: work
+  project_meta: .project
+  brief: brief.md
+  trash: .trash
+models:
+  default: default
+  small: small
+  thorough: default
+defaults:
+  OC_DOMAIN: apps.example.org
+  OC_REQUIRED_GROUP: ''
+  OC_ADMIN_GROUP: ''
+  LITELLM_BASE_URL: https://models.example.org
+  OC_SEARXNG_URL: ''
+  OC_IDENTITY_ISSUER: authentik
+  OC_IDENTITY_SUBJECT_HEADER: X-Authentik-Uid
+  OC_IMAGE_MODELS: ''
+consent:
+  version: minimal-1
+  en:
+    title: Before you start
+    short: Check results before using them
+    points:
+    - Your projects and chats are stored by the operator.
+    - Requests are sent to the configured language model.
+    - Do not enter passwords or confidential data.
+    - Check results before using them.
+  de:
+    title: Bevor du beginnst
+    short: Resultate vor der Verwendung prüfen
+    points:
+    - Der Betreiber speichert deine Projekte und Chats.
+    - Anfragen gehen an das konfigurierte Sprachmodell.
+    - Gib keine Passwörter oder vertraulichen Daten ein.
+    - Prüfe Resultate vor der Verwendung.
+artifacts:
+  commands/help.md: |
+    ---
+    description: What can the helper do? With examples
+    ---
+    Explain to the person in 8 to 10 lines what you can do for them in this project. Take a quick look at `[[folders.inbox]]/` and `[[folders.project_meta]]/[[folders.brief]]` if present.
+
+    Then:
+    - 5 example tasks that fit the files in `[[folders.inbox]]/`. If `[[folders.inbox]]/` is empty, use typical tasks: analyse a spreadsheet, write a text or document, research in existing files.
+    - The commands, briefly explained: `/results`, `/summarize`, `/check`, `/remember`, `/new-version`, `/research`.
+    - That changes can be taken back with "Undo", large files not; that is why you create new versions.
+    - [[copy.pricing.en]]
+    - Where to download the results: in the portal `https://[[domain]]` under the project.
+
+    $ARGUMENTS
+  opencode.jsonc: |
+    {
+      "$schema": "https://opencode.ai/config.json",
+      "providers": {
+        "litellm": {
+          "name": "Models",
+          "package": "aisdk:@ai-sdk/openai-compatible",
+          "compatibility": { "maxTokensField": "max_tokens" },
+          "settings": {
+            "baseURL": "http://llm-gw:4000/v1",
+            "headerTimeout": 620000,
+            "chunkTimeout": 300000
+          },
+          // [[copy.pricing_models.en]]
+          "models": {
+            "standard": {
+              "modelID": "[[models.default]]"[[accounting.standard_cost]],
+              [[assistants.default_variants]]
+              "family": "standard",
+              "name": "Standard",
+              "limit": {
+                "context": 262144,
+                "output": 32768
+              },
+              "capabilities": {
+                "tools": true,
+                "input": [
+                  "text",
+                  "image"
+                ]
+              }
+            },
+            "fast": {
+              "modelID": "[[models.small]]"[[accounting.fast_cost]],
+              [[assistants.small_variants]]
+              "family": "fast",
+              "name": "Fast and cheap",
+              "limit": {
+                "context": 131072,
+                "output": 16384
+              },
+              "capabilities": {
+                "tools": true,
+                "input": [
+                  "text",
+                  "image"
+                ]
+              }
+            },
+            "thorough": {
+              "modelID": "[[models.thorough]]"[[accounting.thorough_cost]],
+              [[assistants.thorough_variants]]
+              "family": "thorough",
+              "name": "Thorough",
+              "limit": {
+                "context": 262144,
+                "output": 16384
+              },
+              "capabilities": {
+                "tools": true,
+                "input": [
+                  "text",
+                  "image"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "model": "litellm/standard",
+      "default_agent": "helper",
+      "agents": {
+        "title": {
+          "model": "litellm/fast"
+        },
+        "plan": {
+          "disabled": true
+        },
+        "build": {
+          "description": "Pro mode: programming with all tools"
+        }
+      },
+      "instructions": [
+        "/etc/opencode/AGENTS.md",
+        "[[folders.project_meta]]/[[folders.brief]]"
+      ],
+      "skills": [
+        "/etc/opencode/skills"
+      ],
+      "mcp": {
+        "servers": {}
+      },
+      "websearch": false,
+      "snapshots": true,
+      "formatter": false,
+      "warming": false,
+      "lsp": false,
+      "compaction": {
+        "auto": true,
+        "keep": {
+          "tokens": 20000
+        }
+      },
+      "watcher": {
+        "ignore": [
+          ".venv/**",
+          "node_modules/**",
+          "__pycache__/**",
+          "[[folders.work]]/tmp/**",
+          "[[folders.trash]]/**"
+        ]
+      },
+      "permissions": [
+        {
+          "action": "*",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "execute",
+          "resource": "*",
+          "effect": "deny"
+        }
+      ],
+      "policies": [
+        {
+          "action": "provider.use",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "provider.use",
+          "resource": "litellm",
+          "effect": "allow"
+        },
+        {
+          "action": "integration.use",
+          "resource": "mcp:*",
+          "effect": "deny"
+        },
+        {
+          "action": "integration.use",
+          "resource": "skill:*",
+          "effect": "allow"
+        },
+        {
+          "action": "integration.use",
+          "resource": "skill:report",
+          "effect": "deny"
+        },
+        {
+          "action": "integration.use",
+          "resource": "plugin:*",
+          "effect": "deny"
+        },
+        {
+          "action": "tool.use",
+          "resource": "external_directory:*",
+          "effect": "deny"
+        },
+        {
+          "action": "tool.use",
+          "resource": "external_directory:/workspace/*",
+          "effect": "allow"
+        },
+        {
+          "action": "tool.use",
+          "resource": "external_directory:/tmp/opencode/*",
+          "effect": "allow"
+        },
+        {
+          "action": "tool.use",
+          "resource": "external_directory:/home/user/.config/opencode/*",
+          "effect": "allow"
+        },
+        {
+          "action": "tool.use",
+          "resource": "external_directory:/home/user/.local/share/opencode/tool-output/*",
+          "effect": "allow"
+        },
+        {
+          "action": "tool.use",
+          "resource": "external_directory:/home/user/.local/share/opencode/shell/*",
+          "effect": "allow"
+        },
+        {
+          "action": "tool.use",
+          "resource": "external_directory:/etc/opencode/skills/*",
+          "effect": "allow"
+        },
+        {
+          "action": "tool.use",
+          "resource": "edit:/etc/opencode/*",
+          "effect": "deny"
+        },
+        {
+          "action": "tool.use",
+          "resource": "edit:/home/user/.config/opencode/opencode.json*",
+          "effect": "deny"
+        },
+        {
+          "action": "tool.use",
+          "resource": "edit:/workspace/[[folders.trash]]/*",
+          "effect": "deny"
+        },
+        {
+          "action": "tool.use",
+          "resource": "edit:/home/user/.config/opencode/[[config_file]]*",
+          "effect": "deny"
+        },
+        {
+          "action": "tool.use",
+          "resource": "websearch:*",
+          "effect": "deny"
+        },
+        {
+          "action": "tool.use",
+          "resource": "webfetch:*",
+          "effect": "deny"
+        }
+      ]
+    }
+  AGENTS.md: |
+    # [[name]]
+
+    Work inside the current project under /workspace/.
+    - [[folders.inbox]]/: input files. Never change or delete them.
+    - [[folders.results]]/: deliverables. New results use a free name; requested edits update the existing file.
+    - [[folders.work]]/: scratch work.
+    - [[folders.project_meta]]/[[folders.brief]]: read the project brief.
+    - /workspace/[[folders.trash]]/: managed by the portal; do not read or change it.
+
+    Answer in the person's language. Check results and name sources.
+  agents/helper.md: |
+    ---
+    description: Help with tasks and files
+    mode: primary
+    ---
+    Follow /etc/opencode/AGENTS.md and the project brief.
+# Explicit footprint assumptions; not measurements of the configured providers.
+footprint_assumptions:
+  pue: 1.2
+  grid_g_per_kwh: 344
+copy:
+  folder_name_prompt:
+    en: "Suggest a short English folder name for the following task: lower case, words separated by hyphens, at most four words. Answer with the name only."
+    de: "Suggest a short English folder name for the following task: lower case, words separated by hyphens, at most four words. Answer with the name only."
+  pricing:
+    en: "Prices are operator-configured estimates. Upstream cost currency: [[accounting.upstream_cost_currency]] (none means reported costs are not used). Conversion rate: [[accounting.usd_per_eur]] USD per EUR (0 means no rate is configured). Token estimates in EUR per million, input/output: [[accounting.prices]]."
+    de: "Preise sind vom Betreiber konfigurierte Schätzwerte. Kostenwährung des Modelldienstes: [[accounting.upstream_cost_currency]] (none bedeutet, dass gemeldete Kosten nicht verwendet werden). Umrechnungskurs: [[accounting.usd_per_eur]] USD pro EUR (0 bedeutet, dass kein Kurs konfiguriert ist). Tokenschätzpreise in EUR pro Million, Eingabe/Ausgabe: [[accounting.prices]]."
+  pricing_method:
+    en: "Prices are operator-configured estimates. Upstream cost currency: [[accounting.upstream_cost_currency]] (none means reported costs are not used). Conversion rate: [[accounting.usd_per_eur]] USD per EUR (0 means no rate is configured). Token estimates in EUR per million, input/output: [[accounting.prices]]."
+    de: "Preise sind vom Betreiber konfigurierte Schätzwerte. Kostenwährung des Modelldienstes: [[accounting.upstream_cost_currency]] (none bedeutet, dass gemeldete Kosten nicht verwendet werden). Umrechnungskurs: [[accounting.usd_per_eur]] USD pro EUR (0 bedeutet, dass kein Kurs konfiguriert ist). Tokenschätzpreise in EUR pro Million, Eingabe/Ausgabe: [[accounting.prices]]."
+  pricing_models:
+    en: "Prices are operator-configured estimates. Upstream cost currency: [[accounting.upstream_cost_currency]] (none means reported costs are not used). Conversion rate: [[accounting.usd_per_eur]] USD per EUR (0 means no rate is configured). Token estimates in EUR per million, input/output: [[accounting.prices]]."
+    de: "Preise sind vom Betreiber konfigurierte Schätzwerte. Kostenwährung des Modelldienstes: [[accounting.upstream_cost_currency]] (none bedeutet, dass gemeldete Kosten nicht verwendet werden). Umrechnungskurs: [[accounting.usd_per_eur]] USD pro EUR (0 bedeutet, dass kein Kurs konfiguriert ist). Tokenschätzpreise in EUR pro Million, Eingabe/Ausgabe: [[accounting.prices]]."
+  evaluation_help:
+    en: Chats are stored by the operator. Do not enter private or confidential data.
+    de: Chats werden beim Betreiber gespeichert. Gib keine privaten oder vertraulichen Daten ein.
+  evaluation_privacy:
+    en: This instance does not run chat evaluation.
+    de: Diese Instanz wertet Chats nicht aus.
+  providers:
+    en: Requests go to the model endpoint configured by the operator. Ask the operator about its providers and data handling.
+    de: Anfragen gehen an den vom Betreiber konfigurierten Modell-Endpunkt. Auskunft zu Anbietern und Datenverarbeitung gibt der Betreiber.
+reference_hosts:
+- example.org
+- wikipedia.org
+- wikidata.org
+- doi.org
+- arxiv.org
+footprint: {}
+
+# Neutral staged example; no source or staff-service consent is configured.
+assistants:
+  - id: support
+    enabled: false
+    project_mode: per_task
+    version: 2
+    title: Support
+    description: Help describe a problem and prepare a support request.
+    model_role: default
+    consent_mode: pending
+    knowledge_sources: []
+    skills: []
+    mcp_tools: []
+    builtin_tools: [question]
+    prompt:
+      role: Help the person describe their problem and prepare a support request.
+      rules:
+        - Ask one question at a time. Never request passwords or tokens.
+        - No knowledge source is configured. Do not invent procedural guidance or citations.
+        - Make no system changes and send no messages.
+      escalation: Draft the problem, affected application or device, exact error and steps already tried in the chat. The person reviews and sends the draft to their support contact.
+    entry_question: How can I help you?
+    init_prompt: >-
+      Help describe the person's problem and prepare a support request.
+      Ask one question at a time. No knowledge source is configured; do not
+      invent guidance or citations. Change nothing on systems, run no commands
+      and send no messages. When stuck, draft a message to support with the
+      problem, affected application or device, error and steps already tried.
+      The person reviews and sends it. Never ask for passwords or tokens.

@@ -1,0 +1,55 @@
+# File provider only: Traefik never needs the Docker socket.
+http:
+  routers:
+    identity:
+      rule: 'Host(`auth.{{ env "OC_DOMAIN" }}`)'
+      entryPoints: [websecure]
+      priority: 300
+      tls: {}
+      service: identity
+    outpost:
+      rule: '(Host(`{{ env "OC_DOMAIN" }}`) || HostRegexp(`^[a-z0-9-]+\.{{ env "OC_DOMAIN" | replace "." "\\." }}$`)) && PathPrefix(`/outpost.goauthentik.io/`)'
+      entryPoints: [websecure]
+      priority: 200
+      tls: {}
+      service: identity
+    workspace:
+      rule: 'Host(`{{ env "OC_DOMAIN" }}`) || HostRegexp(`^[a-z0-9-]+\.{{ env "OC_DOMAIN" | replace "." "\\." }}$`)'
+      entryPoints: [websecure]
+      priority: 100
+      tls: {}
+      middlewares: [authenticate]
+      service: workspace
+  middlewares:
+    authenticate:
+      forwardAuth:
+        address: http://authentik:9000/outpost.goauthentik.io/auth/traefik
+        trustForwardHeader: false
+        # Removes matching client headers before copying the authenticated ones.
+        authResponseHeadersRegex: '(?i)^x-authentik-'
+    # Alternative: compose.oauth2-proxy.example.yaml selects traefik.oauth2-proxy.yaml.
+    # authenticate:
+    #   forwardAuth:
+    #     address: http://oauth2-proxy:4180/
+    #     trustForwardHeader: false
+    #     authRequestHeaders: [Cookie]
+    #     authResponseHeaders:
+    #       - X-Auth-Request-User
+    #       - X-Auth-Request-Email
+    #       - X-Auth-Request-Groups
+    #       - X-Auth-Request-Preferred-Username
+    #     authResponseHeadersRegex: '(?i)^(x-auth-request-|x-authentik-)'
+  services:
+    workspace:
+      loadBalancer:
+        servers: [{url: 'http://manager:8080'}]
+    identity:
+      loadBalancer:
+        servers: [{url: 'http://authentik:9000'}]
+tls:
+  certificates:
+    - certFile: /certs/fullchain.pem
+      keyFile: /certs/privkey.pem
+  options:
+    default:
+      minVersion: VersionTLS12

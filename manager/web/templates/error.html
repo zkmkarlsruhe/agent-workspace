@@ -1,0 +1,9 @@
+{{define "title"}}{{.D.Title}}{{end}}
+{{define "content"}}
+<div class="error-page">
+  <h1>{{.D.Title}}</h1>
+  <div class="alert alert--danger" role="alert"><p>{{.D.Text}}</p></div>
+  {{with .D.ErrorID}}<dl class="kv"><dt>{{t "Error ID"}}</dt><dd><span class="error-code">{{.}}</span></dd></dl>{{end}}
+  <div class="btn-row"><a class="btn" href="/">{{t "To my projects"}}</a></div>
+</div>
+{{end}}

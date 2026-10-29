@@ -1,0 +1,84 @@
+{{define "title"}}{{t "Setup"}}{{end}}
+{{define "content"}}
+{{$d := .D}}
+<div class="page-head">
+  <div>
+    <h1>{{t "Setup"}}</h1>
+    <p class="page-head__lead">{{if $d.Settings}}{{t "Four short steps. You can skip them at any time and open them again later under “Environment” or “Help”."}}{{else}}{{t "Three short steps. You can skip them at any time and open them again later under “Environment” or “Help”."}}{{end}}</p>
+  </div>
+</div>
+<ol class="steps">
+  <li{{if eq $d.Step 1}} aria-current="step"{{end}}>{{t "What the helper can do"}}</li>
+  <li{{if eq $d.Step 2}} aria-current="step"{{end}}>{{t "Set up connections"}}</li>
+  {{if $d.Settings}}<li{{if eq $d.Step 3}} aria-current="step"{{end}}>{{t "About me & how I work"}}</li>{{end}}
+  <li{{if eq $d.Step $d.Steps}} aria-current="step"{{end}}>{{t "First task"}}</li>
+</ol>
+
+{{if eq $d.Step 1}}
+<section class="section" aria-labelledby="s1-h">
+  <h2 id="s1-h">{{t "What the helper can do"}}</h2>
+  <ul>
+    {{if $.Capabilities.office}}<li>{{t "It reads your documents, for example Excel spreadsheets, Word files and PDFs, and analyses them."}}</li>{{end}}
+    {{if $.Capabilities.office}}<li>{{t "It writes texts, tables, charts and PDFs and puts them into the “[[folders.results]]” folder of your project."}}</li>{{end}}
+    {{if $.Capabilities.web}}<li>{{t "It searches the web and gives you the sources."}}</li>{{end}}
+    <li>{{t "Ask it to clarify anything unclear and review important changes before using them."}}</li>
+  </ul>
+  <p>{{th "Every task gets a project of its own. Whatever you give it is sent to a language model; more on this in the <a href=\"/privacy\">privacy notice</a>."}}</p>
+  <div class="btn-row">
+    <a class="btn btn--primary" href="/onboarding?step=2">{{t "Next"}}</a>
+    <a href="/">{{t "Skip"}}</a>
+  </div>
+</section>
+{{else if eq $d.Step 2}}
+<section class="section" aria-labelledby="s2-h">
+  <h2 id="s2-h">{{t "Set up connections"}}</h2>
+  {{with $d.Connections}}
+  <p>{{t "If you connect [[name]] to in-house systems, the helper fetches your files itself. This is optional; without a connection you simply upload files in the portal."}}</p>
+  <ul class="action-list">
+    {{range .}}<li>
+      <div>
+        <h3>{{.Title}}</h3>
+        <p>{{if eq .ID "nextcloud"}}{{t "View folders and fetch files into a project. The helper only saves results in your folder “[[nextcloud_root]]”. [[name]] never sees your Nextcloud password."}}{{end}}</p>
+        <p class="small">{{template "connection-status" .}}</p>
+        {{if failed .Flow.State}}<p class="small" role="status">{{template "connection-error" .Flow.State}}</p>{{end}}
+      </div>
+      {{template "connection-buttons" (args . "onboarding")}}
+    </li>
+    {{end}}
+  </ul>
+  {{else}}
+  <p>{{t "No in-house system is connected to this installation yet. You upload files in the portal."}}</p>
+  {{end}}
+  <div class="btn-row">
+    <a class="btn btn--primary" href="/onboarding?step=3">{{t "Next"}}</a>
+    <a href="/onboarding?step=1">{{t "Back"}}</a>
+    <a href="/">{{t "Skip"}}</a>
+  </div>
+</section>
+{{else if and $d.Settings (eq $d.Step 3)}}
+<section class="section" aria-labelledby="s3p-h">
+  <h2 id="s3p-h">{{t "About me & how I work"}}</h2>
+  <p>{{t "Tell the helper how you want to be addressed, how detailed its answers should be and in which form you need results. You can review the profile details available to it in your settings."}}</p>
+  <p>{{if eq $.Lang "en"}}{{t "Without any details, it answers in English and gives results in the chat."}}{{else}}Ohne Angaben duzt er dich, antwortet auf Deutsch und gibt Ergebnisse im Chat.{{end}}</p>
+  <div class="btn-row">
+    <a class="btn btn--primary" href="/settings?from=onboarding">{{t "Set how I work"}}</a>
+    <a href="/onboarding?step=4">{{t "Continue without personal settings"}}</a>
+    <a href="/onboarding?step=2">{{t "Back"}}</a>
+  </div>
+</section>
+{{else}}
+<section class="section" aria-labelledby="s3-h">
+  <h2 id="s3-h">{{t "Done: your first task"}}</h2>
+  <p>{{t "On the start page, describe what the helper should do and add files if needed. “Get started” opens the chat."}}</p>
+  <p>{{t "Or start with a template:"}}</p>
+  <ul class="link-list">
+    {{range $d.Templates}}{{if or (eq .ID "text") (and (eq .ID "research") $.Capabilities.web) (and (eq .ID "table") $.Capabilities.office)}}<li><a href="/?template={{.ID}}">{{t .Title}}</a><p>{{t .Teaser}}</p></li>
+    {{end}}{{end}}
+  </ul>
+  <div class="btn-row">
+    <a class="btn btn--primary" href="/">{{t "To the start page"}}</a>
+    <a href="/onboarding?step={{if $d.Settings}}3{{else}}2{{end}}">{{t "Back"}}</a>
+  </div>
+</section>
+{{end}}
+{{end}}

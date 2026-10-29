@@ -1,0 +1,64 @@
+{{define "title"}}{{t "Capabilities"}}{{end}}
+{{define "content"}}
+<div class="page-head">
+  <div>
+    <h1>{{t "Capabilities"}}</h1>
+    <p class="page-head__lead">{{t "Choose extra abilities for your tasks, such as searching documents or working with tables."}}</p>
+  </div>
+</div>
+{{if not .D.Running}}
+<div class="alert alert--warning" role="status">
+  <p>{{t "Your workspace is stopped. Start it to see the built-in and saved abilities. You can change your selection now; it will apply when you start."}}</p>
+  <form method="post" action="/environment/start"><button class="btn btn--small" type="submit">{{t "Start workspace"}}</button></form>
+</div>
+{{end}}
+
+<section class="section" id="standard" aria-labelledby="standard-h">
+  <div class="section__head"><h2 id="standard-h">{{if .D.ProjectScoped}}{{t "Available for your projects"}}{{else}}{{t "Always included"}}{{end}}</h2></div>
+  {{with .D.Standard}}
+  <ul class="action-list">
+    {{range .}}<li><div><h3>{{.Title}}</h3>{{with .Description}}<p>{{.}}</p>{{end}}</div></li>
+    {{end}}
+  </ul>
+  {{else}}<p class="empty muted">{{t "Not available right now."}}</p>{{end}}
+</section>
+
+<section class="section" id="katalog" aria-labelledby="katalog-h">
+  <div class="section__head"><h2 id="katalog-h">{{t "Additional abilities"}}</h2></div>
+  <p class="muted">{{if .D.ProjectScoped}}{{t "Choose which abilities you want to use. When you start a project, you can select what it needs."}}{{else}}{{t "Switch on the abilities you need for your tasks."}}{{end}}</p>
+  {{with .D.Catalog}}
+  <ul class="action-list">
+    {{range .}}<li id="w-{{.ID}}">
+      <div>
+        <h3>{{.Title}}</h3>
+        <p>{{.Description}}</p>
+        <p class="small">{{if .On}}<span class="badge badge--done">{{t "on"}}</span>{{else}}<span class="badge badge--idle">{{t "off"}}</span>{{end}}{{with .Category}} <span class="muted">&middot; {{.}}</span>{{end}}</p>
+      </div>
+      <form method="post" action="/tools/{{.ID}}">
+        {{if .On}}<input type="hidden" name="on" value="0"><button class="btn btn--small" type="submit">{{t "Switch off"}}<span class="visually-hidden">: {{.Title}}</span></button>
+        {{else}}<input type="hidden" name="on" value="1"><button class="btn btn--small" type="submit">{{t "Switch on"}}<span class="visually-hidden">: {{.Title}}</span></button>{{end}}
+      </form>
+    </li>
+    {{end}}
+  </ul>
+  {{else}}<p class="empty muted">{{t "No additional abilities are available right now."}}</p>{{end}}
+</section>
+
+<section class="section" id="eigene" aria-labelledby="eigene-h">
+  <div class="section__head"><h2 id="eigene-h">{{t "Saved instructions"}}</h2></div>
+  <p class="muted">{{t "For tasks you repeat, ask in the conversation: “Remember how we analyse visitor numbers.” The instructions are saved for you. Ask there to change them."}}</p>
+  {{if .D.Running}}{{with .D.Own}}
+  <ul class="action-list">
+    {{range .}}<li>
+      <div>
+        <h3 class="mono">{{.ID}}</h3>
+        {{with .Description}}<p>{{.}}</p>{{end}}
+        <p class="small muted">{{t "changed %s" (when .Changed)}}</p>
+      </div>
+      <a class="btn btn--small btn--danger-outline" href="/tools/own/{{.ID}}/delete" data-dialog>{{t "Delete"}}<span class="visually-hidden">: {{.ID}}</span></a>
+    </li>
+    {{end}}
+  </ul>
+  {{else}}<p class="empty muted">{{t "You have no saved instructions yet."}}</p>{{end}}{{end}}
+</section>
+{{end}}

@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "name": "pdf",
+  "version": "0.1.0",
+  "runs": "builtin",
+  "enabled_by_default": true,
+  "tools": [
+    "md_to_pdf"
+  ],
+  "scopes": [
+    "workspace:read",
+    "workspace:write"
+  ],
+  "health": "optional",
+  "requires_opencode": ">=2.2.0 <2.3"
+}

@@ -1,0 +1,19 @@
+{{define "title"}}{{.D.Project.Folder}}{{end}}
+{{define "content"}}
+<p class="breadcrumb"><a href="/projects/{{.D.Project.Folder}}">{{.D.Project.Folder}}</a></p>
+<h1>{{.D.Project.Assistant.ID}}</h1>
+<p>{{t "Revision"}} {{.D.Project.Assistant.Version}} &middot; <code>{{.D.Project.Assistant.Hash}}</code></p>
+<p>{{t "By default, support chats are stored for you and excluded from routine operator reading and evaluation. The model and selected knowledge services process your requests. Do not enter passwords or tokens. You can export or delete the project."}}</p>
+{{if .D.Evaluation}}<form method="post" action="/support/{{.D.Session.ID}}/evaluation/withdraw"><p>{{t "You allowed evaluation for this project."}}</p><button class="btn" type="submit">{{t "Withdraw evaluation consent"}}</button></form>{{end}}
+{{range .D.Messages}}{{if or (eq .Role "user") (eq .Role "assistant")}}{{if .Content}}
+<section class="section"><h2>{{if eq .Role "user"}}{{t "You"}}{{else}}{{t "Answer"}}{{end}}</h2><pre class="support-message">{{range supportParts .Content}}{{if .URL}}<a href="{{.URL}}" rel="noreferrer noopener" target="_blank">{{.Text}}</a>{{else}}{{.Text}}{{end}}{{end}}</pre></section>
+{{end}}{{end}}{{end}}
+<form method="post" action="/support/{{.D.Session.ID}}" class="form section" data-once>
+  <input type="hidden" name="revision" value="{{.D.Session.Revision}}">
+  <div class="field">
+    <label class="field__label" for="message">{{t "Your message"}}</label>
+    <textarea class="textarea" id="message" name="message" required maxlength="16000" rows="5">{{.D.Prompt}}</textarea>
+  </div>
+  <button class="btn btn--primary" type="submit">{{t "Send"}}</button>
+</form>
+{{end}}

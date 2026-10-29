@@ -1,0 +1,18 @@
+{{define "watchdog"}}
+<div id="watchdog" aria-live="polite">
+  {{range .Rows}}
+  <div class="alert" role="status">
+    {{if .Retry}}
+    <p>{{.Title}}: {{t "Model is being retried (attempt %d, next try in %d s)" .Attempt .Seconds}}</p>
+    {{else}}
+    <p>{{if .ParentID}}{{if .Minutes}}{{t "Subagent %s has produced no output for %d min" .Title .Minutes}}{{else}}{{t "Subagent %s has produced no output for %d s" .Title .SilentSeconds}}{{end}}{{else}}{{if .Minutes}}{{t "Session %s has produced no output for %d min" .Title .Minutes}}{{else}}{{t "Session %s has produced no output for %d s" .Title .SilentSeconds}}{{end}}{{end}}</p>
+    <p class="small muted">{{t "The model may still be reasoning or waiting for a tool."}}</p>
+    <form method="post" action="{{$.URL}}/{{.SessionID}}/stop" hx-post="{{$.URL}}/{{.SessionID}}/stop" hx-target="#watchdog" hx-swap="outerHTML">
+      <button class="btn btn--small" type="submit">{{if .ParentID}}{{t "Stop subagent"}}{{else}}{{t "Stop"}}{{end}}<span class="visually-hidden">: {{.Title}}</span></button>
+    </form>
+    {{if not .ParentID}}<p class="small muted">{{t "Background subagents must be stopped one by one."}}</p>{{end}}
+    {{end}}
+  </div>
+  {{end}}
+</div>
+{{end}}

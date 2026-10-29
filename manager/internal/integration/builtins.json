@@ -1,0 +1,137 @@
+[
+  {
+    "schema": 1,
+    "name": "evaluation",
+    "version": "0.1.0",
+    "runs": "builtin",
+    "scopes": [
+      "transcripts:read",
+      "llm.background"
+    ],
+    "holds_personal_data": true,
+    "portal": [
+      {
+        "path": "/admin",
+        "roles": [
+          "admin"
+        ]
+      }
+    ],
+    "health": "optional"
+  },
+  {
+    "schema": 1,
+    "name": "feedback",
+    "version": "0.1.0",
+    "runs": "builtin",
+    "tools": [
+      "feedback_send"
+    ],
+    "health": "optional",
+    "requires_opencode": ">=2.2.0 <2.3"
+  },
+  {
+    "schema": 1,
+    "name": "images",
+    "version": "0.1.0",
+    "runs": "builtin",
+    "tools": [
+      "image_generate",
+      "image_view"
+    ],
+    "scopes": [
+      "workspace:read",
+      "workspace:write",
+      "llm.user"
+    ],
+    "health": "optional",
+    "requires_opencode": ">=2.2.0 <2.3"
+  },
+  {
+    "schema": 1,
+    "name": "nextcloud",
+    "version": "0.1.0",
+    "runs": "builtin",
+    "tools": [
+      "list",
+      "fetch",
+      "upload",
+      "search",
+      "pull"
+    ],
+    "scopes": [
+      "workspace:read",
+      "workspace:write"
+    ],
+    "holds_personal_data": true,
+    "health": "optional",
+    "requires_opencode": ">=2.2.0 <2.3"
+  },
+  {
+    "schema": 1,
+    "name": "pdf",
+    "version": "0.1.0",
+    "runs": "builtin",
+    "enabled_by_default": true,
+    "tools": [
+      "md_to_pdf"
+    ],
+    "scopes": [
+      "workspace:read",
+      "workspace:write"
+    ],
+    "health": "optional",
+    "requires_opencode": ">=2.2.0 <2.3"
+  },
+  {
+    "schema": 1,
+    "name": "toolbox",
+    "version": "0.1.0",
+    "runs": "builtin",
+    "tools": [
+      "toolbox_run"
+    ],
+    "health": "optional",
+    "requires_opencode": ">=2.2.0 <2.3"
+  },
+  {
+    "schema": 1,
+    "name": "web-research",
+    "version": "0.1.0",
+    "runs": "builtin",
+    "enabled_by_default": true,
+    "tools": [
+      "web_search",
+      "web_read"
+    ],
+    "health": "optional",
+    "requires_opencode": ">=2.2.0 <2.3"
+  },
+  {
+    "schema": 1,
+    "name": "workspace-rooms",
+    "version": "0.1.0",
+    "runs": "builtin",
+    "tools": [
+      "house_events",
+      "rooms_free",
+      "bikes_free",
+      "my_bookings"
+    ],
+    "scopes": [
+      "users:read"
+    ],
+    "health": "optional",
+    "requires_opencode": ">=2.2.0 <2.3"
+  },
+  {
+    "schema": 1,
+    "name": "workspace-style",
+    "version": "0.1.0",
+    "runs": "none",
+    "requires": [
+      "pdf"
+    ],
+    "health": "optional"
+  }
+]

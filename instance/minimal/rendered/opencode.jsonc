@@ -1,0 +1,226 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "providers": {
+    "litellm": {
+      "name": "Models",
+      "package": "aisdk:@ai-sdk/openai-compatible",
+      "compatibility": { "maxTokensField": "max_tokens" },
+      "settings": {
+        "baseURL": "http://llm-gw:4000/v1",
+        "headerTimeout": 620000,
+        "chunkTimeout": 300000
+      },
+      // Prices are operator-configured estimates. Upstream cost currency: none (none means reported costs are not used). Conversion rate: 0 USD per EUR (0 means no rate is configured). Token estimates in EUR per million, input/output: standard 0.6/3.6; fast 0.6/3.6; thorough 0.6/3.6.
+      "models": {
+        "standard": {
+          "modelID": "default",
+          
+          "family": "standard",
+          "name": "Standard",
+          "limit": {
+            "context": 262144,
+            "output": 32768
+          },
+          "capabilities": {
+            "tools": true,
+            "input": [
+              "text",
+              "image"
+            ]
+          }
+        },
+        "fast": {
+          "modelID": "small",
+          
+          "family": "fast",
+          "name": "Fast and cheap",
+          "limit": {
+            "context": 131072,
+            "output": 16384
+          },
+          "capabilities": {
+            "tools": true,
+            "input": [
+              "text",
+              "image"
+            ]
+          }
+        },
+        "thorough": {
+          "modelID": "default",
+          
+          "family": "thorough",
+          "name": "Thorough",
+          "limit": {
+            "context": 262144,
+            "output": 16384
+          },
+          "capabilities": {
+            "tools": true,
+            "input": [
+              "text",
+              "image"
+            ]
+          }
+        }
+      }
+    }
+  },
+  "model": "litellm/standard",
+  "default_agent": "helper",
+  "agents": {
+    "title": {
+      "model": "litellm/fast"
+    },
+    "plan": {
+      "disabled": true
+    },
+    "build": {
+      "description": "Pro mode: programming with all tools"
+    }
+  },
+  "instructions": [
+    "/etc/opencode/AGENTS.md",
+    ".project/brief.md"
+  ],
+  "skills": [
+    "/etc/opencode/skills"
+  ],
+  "mcp": {
+    "servers": {}
+  },
+  "websearch": false,
+  "snapshots": true,
+  "formatter": false,
+  "warming": false,
+  "lsp": false,
+  "compaction": {
+    "auto": true,
+    "keep": {
+      "tokens": 20000
+    }
+  },
+  "watcher": {
+    "ignore": [
+      ".venv/**",
+      "node_modules/**",
+      "__pycache__/**",
+      "work/tmp/**",
+      ".trash/**"
+    ]
+  },
+  "permissions": [
+    {
+      "action": "*",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "read",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "execute",
+      "resource": "*",
+      "effect": "deny"
+    }
+  ],
+  "policies": [
+    {
+      "action": "provider.use",
+      "resource": "*",
+      "effect": "deny"
+    },
+    {
+      "action": "provider.use",
+      "resource": "litellm",
+      "effect": "allow"
+    },
+    {
+      "action": "integration.use",
+      "resource": "mcp:*",
+      "effect": "deny"
+    },
+    {
+      "action": "integration.use",
+      "resource": "skill:*",
+      "effect": "allow"
+    },
+    {
+      "action": "integration.use",
+      "resource": "skill:report",
+      "effect": "deny"
+    },
+    {
+      "action": "integration.use",
+      "resource": "plugin:*",
+      "effect": "deny"
+    },
+    {
+      "action": "tool.use",
+      "resource": "external_directory:*",
+      "effect": "deny"
+    },
+    {
+      "action": "tool.use",
+      "resource": "external_directory:/workspace/*",
+      "effect": "allow"
+    },
+    {
+      "action": "tool.use",
+      "resource": "external_directory:/tmp/opencode/*",
+      "effect": "allow"
+    },
+    {
+      "action": "tool.use",
+      "resource": "external_directory:/home/user/.config/opencode/*",
+      "effect": "allow"
+    },
+    {
+      "action": "tool.use",
+      "resource": "external_directory:/home/user/.local/share/opencode/tool-output/*",
+      "effect": "allow"
+    },
+    {
+      "action": "tool.use",
+      "resource": "external_directory:/home/user/.local/share/opencode/shell/*",
+      "effect": "allow"
+    },
+    {
+      "action": "tool.use",
+      "resource": "external_directory:/etc/opencode/skills/*",
+      "effect": "allow"
+    },
+    {
+      "action": "tool.use",
+      "resource": "edit:/etc/opencode/*",
+      "effect": "deny"
+    },
+    {
+      "action": "tool.use",
+      "resource": "edit:/home/user/.config/opencode/opencode.json*",
+      "effect": "deny"
+    },
+    {
+      "action": "tool.use",
+      "resource": "edit:/workspace/.trash/*",
+      "effect": "deny"
+    },
+    {
+      "action": "tool.use",
+      "resource": "edit:/home/user/.config/opencode/catalog.json*",
+      "effect": "deny"
+    },
+    {
+      "action": "tool.use",
+      "resource": "websearch:*",
+      "effect": "deny"
+    },
+    {
+      "action": "tool.use",
+      "resource": "webfetch:*",
+      "effect": "deny"
+    }
+  ]
+}

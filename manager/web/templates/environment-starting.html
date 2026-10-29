@@ -1,0 +1,89 @@
+{{define "title"}}{{if eq .D.State "error"}}{{t "Environment does not start"}}{{else if eq .D.State "full"}}{{t "All places taken"}}{{else}}{{t "Environment starting"}}{{end}}{{end}}
+{{define "head"}}{{if eq .D.State "starting"}}<noscript><meta http-equiv="refresh" content="2"></noscript>{{end}}{{end}}
+{{define "statusbar"}}{{if eq .D.State "error"}}
+<div class="statusbar statusbar--danger" role="status">
+  <div class="statusbar__inner"><span class="badge badge--error">{{t "Environment disrupted"}}</span> <span>{{t "Projects and files are stored safely."}}</span></div>
+</div>
+{{end}}{{end}}
+{{define "content"}}
+{{if eq .D.State "error"}}
+<div class="error-page">
+  <h1>{{t "Your environment could not start"}}</h1>
+  <div class="alert alert--danger" role="alert">
+    <p class="alert__title">{{t "The [[team]] team has been notified."}}</p>
+    <p>{{t "Your projects, files and chats are not affected."}}</p>
+  </div>
+  <h2>{{t "What you can do"}}</h2>
+  <ol>
+    <li>{{t "Try again in a minute or two."}}</li>
+    <li>{{t "If it still does not work, write to [[team]] and quote the error ID."}}</li>
+  </ol>
+  {{with .D.ErrorID}}<dl class="kv"><dt>{{t "Error ID"}}</dt><dd><span class="error-code">{{.}}</span></dd></dl>{{end}}
+  <div class="btn-row btn-row--stack-mobile">
+    <form method="post" action="/environment/start">
+      {{with .D.Project}}<input type="hidden" name="project" value="{{.}}">{{end}}
+      {{with .D.Token}}<input type="hidden" name="t" value="{{.}}">{{end}}
+      <button class="btn btn--primary" type="submit">{{t "Try again"}}</button>
+    </form>
+    <a class="btn btn--quiet" href="/">{{t "To my projects"}}</a>
+  </div>
+</div>
+{{else if eq .D.State "full"}}
+<div class="error-page">
+  <h1>{{t "All places are taken right now"}}</h1>
+  <div class="alert alert--warning" role="status">
+    <p>{{t "All places are taken right now, please try again in a few minutes."}}</p>
+    <p>{{t "Your projects, files and chats are saved."}}</p>
+  </div>
+  <div class="btn-row btn-row--stack-mobile">
+    <form method="post" action="/environment/start">
+      {{with .D.Project}}<input type="hidden" name="project" value="{{.}}">{{end}}
+      {{with .D.Token}}<input type="hidden" name="t" value="{{.}}">{{end}}
+      <button class="btn btn--primary" type="submit">{{t "Retry"}}</button>
+    </form>
+    <a class="btn btn--quiet" href="/">{{t "To my projects"}}</a>
+  </div>
+</div>
+{{else}}
+<h1>{{t "Your environment"}}</h1>
+<div aria-live="polite">
+  {{template "startbox" .}}
+</div>
+{{end}}
+{{end}}
+
+{{define "startbox"}}
+{{if eq .D.State "running"}}
+<div id="startbox" class="startup" role="status">
+  <h2>{{t "Your environment is running"}}</h2>
+  {{with .D.Project}}
+  <form method="post" action="/projects/{{.}}/open" hx-post="/projects/{{.}}/open" hx-trigger="load">
+    {{with $.D.Token}}<input type="hidden" name="t" value="{{.}}">{{end}}
+    <p>{{t "The chat for “%s” is opening." .}}</p>
+    <button class="btn btn--primary" type="submit">{{t "Open chat"}}</button>
+  </form>
+  {{else}}
+  <p><a href="/">{{t "To my projects"}}</a></p>
+  {{end}}
+</div>
+{{else if eq .D.State "stopped"}}
+<div id="startbox" class="startup" role="status">
+  <h2>{{t "Your environment is asleep"}}</h2>
+  <p>{{t "It starts as soon as you click “Start”. This usually takes a few seconds."}}</p>
+  <form method="post" action="/environment/start">
+    {{with .D.Project}}<input type="hidden" name="project" value="{{.}}">{{end}}
+    {{with .D.Token}}<input type="hidden" name="t" value="{{.}}">{{end}}
+    <button class="btn btn--primary" type="submit">{{t "Start"}}</button>
+  </form>
+</div>
+{{else}}
+<div id="startbox" class="startup" role="status"
+  hx-get="{{startURL .D.Project .D.Token}}" hx-select="#startbox" hx-target="this" hx-swap="outerHTML"
+  hx-trigger="every 1s">
+  <h2>{{t "Your environment is starting"}}</h2>
+  <p>{{t "This usually takes a few seconds. It then continues automatically."}}</p>
+  <progress class="progress" aria-label="{{t "Environment starting"}}"></progress>
+  <p class="small muted">{{t "Stuck?"}} <a href="{{startURL .D.Project .D.Token}}">{{t "Reload page"}}</a></p>
+</div>
+{{end}}
+{{end}}

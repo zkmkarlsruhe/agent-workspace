@@ -1,0 +1,19 @@
+{{define "title"}}{{t "Delete %s" .D.Name}}{{end}}
+{{define "content"}}
+<p class="breadcrumb"><a href="/projects/{{.D.Name}}">{{.D.Name}}</a></p>
+<h1 class="visually-hidden">{{t "Delete project"}}</h1>
+<dialog class="dialog dialog--inline" open aria-labelledby="loeschen-h">
+  <form method="post" action="/projects/{{.D.Name}}/delete">
+    <div class="dialog__body">
+      <h2 id="loeschen-h">{{t "Delete project?"}}</h2>
+      {{template "errors" .}}
+      <p>{{if .D.SizeBytes}}{{t "“%s” goes to the Trash: %s, %d chats." .D.Name (gb .D.SizeBytes) .D.Chats}}{{else}}{{t "“%s” goes to the Trash: %d chats." .D.Name .D.Chats}}{{end}}</p>
+      <p>{{t "You can restore it with its chats for 30\u00a0days. After that, files and chats are deleted permanently."}}</p>
+    </div>
+    <div class="dialog__footer">
+      <a class="btn" href="/projects/{{.D.Name}}" data-dialog-close autofocus>{{t "Cancel"}}</a>
+      <button id="delete" class="btn btn--danger" type="submit">{{t "Move to Trash"}}</button>
+    </div>
+  </form>
+</dialog>
+{{end}}

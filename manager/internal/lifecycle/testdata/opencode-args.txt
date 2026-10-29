@@ -1,0 +1,2 @@
+--cors https://example.org --print-logs --log-level info
+--cors https://example.org --print-logs --log-level debug

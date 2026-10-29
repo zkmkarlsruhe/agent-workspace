@@ -1,0 +1,11 @@
+{
+  "schema": 1,
+  "name": "feedback",
+  "version": "0.1.0",
+  "runs": "builtin",
+  "tools": [
+    "feedback_send"
+  ],
+  "health": "optional",
+  "requires_opencode": ">=2.2.0 <2.3"
+}

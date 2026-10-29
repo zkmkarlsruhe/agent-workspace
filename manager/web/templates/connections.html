@@ -1,0 +1,34 @@
+{{define "title"}}{{t "Connections"}}{{end}}
+{{define "content"}}
+<div class="page-head">
+  <div>
+    <h1>{{t "Connections"}}</h1>
+    <p class="page-head__lead">{{t "Connect [[name]] to in-house systems. The helper can then find files there for you and fetch them into your project."}}</p>
+  </div>
+</div>
+
+<section class="section" aria-labelledby="dienste-h">
+  <div class="section__head"><h2 id="dienste-h">{{t "In-house systems"}}</h2></div>
+  <ul class="action-list">
+    {{range .D}}<li id="v-{{.ID}}">
+      <div>
+        <h3>{{.Title}}</h3>
+        <p>{{if eq .ID "nextcloud"}}{{t "The helper can read your Nextcloud: view folders, search by file name and fetch files into a project. It can only write into your folder “[[nextcloud_root]]”, where its results appear. It cannot delete anything."}}{{end}}</p>
+        <p class="small">{{template "connection-status" .}}</p>
+        {{if .Expired}}<p class="small">{{t "%s no longer accepts the stored access, for example because it was deleted there. “Reconnect” fixes this." .Title}}</p>{{end}}
+        {{if failed .Flow.State}}<p class="small" role="status">{{template "connection-error" .Flow.State}}</p>{{end}}
+        {{if eq .Flow.State "pending"}}<p class="small"><a href="/connections/{{.ID}}">{{t "Continue sign-in"}}</a></p>{{end}}
+      </div>
+      {{template "connection-buttons" (args . "")}}
+    </li>
+    {{end}}
+  </ul>
+</section>
+
+<section class="section" aria-labelledby="wie-h">
+  <div class="section__head"><h2 id="wie-h">{{t "How it works here"}}</h2></div>
+  <p>{{t "“Connect” opens the Nextcloud sign-in in a new tab. Sign in there and grant access. Nextcloud then creates a separate password just for [[name]]. [[name]] never sees your Nextcloud password."}}</p>
+  <p>{{t "The app password is stored encrypted by the portal, never in your environment. The helper itself does not know it. In Nextcloud it is listed under Settings → Security as the device “[[name]]”; you can delete it there yourself at any time."}}</p>
+  <p>{{t "“Disconnect” deletes the app password in Nextcloud and here. This happens automatically when you delete your account."}}</p>
+</section>
+{{end}}

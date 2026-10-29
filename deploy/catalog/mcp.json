@@ -1,0 +1,30 @@
+{
+  "items": [
+    {
+      "id": "web-research",
+      "title": "Search and read the web",
+      "title_de": "Im Web suchen und lesen",
+      "description": "The helper searches the web through the configured search engine and reads single pages as text. It names the source for every statement.",
+      "description_de": "Der Helfer sucht im Web \u00fcber die konfigurierte Suchmaschine und liest einzelne Seiten als Text. Er nennt zu jeder Aussage die Quelle.",
+      "tier": "standard",
+      "category": "research",
+      "tools": [
+        "web_search",
+        "web_read"
+      ]
+    },
+    {
+      "id": "md-to-pdf",
+      "title": "Create a PDF",
+      "title_de": "Ein PDF erstellen",
+      "description": "The helper turns a text from your project into a PDF in the configured layout and saves it alongside the text.",
+      "description_de": "Der Helfer macht aus einem Text in deinem Projekt ein PDF im konfigurierten Layout und legt es neben dem Text ab.",
+      "tier": "standard",
+      "category": "texts",
+      "tools": [
+        "md_to_pdf"
+      ]
+    }
+  ],
+  "include_instance": true
+}

@@ -1,0 +1,113 @@
+{{define "layout"}}<!doctype html>
+<html lang="{{.Lang}}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="htmx-config" content='{"allowEval":false,"includeIndicatorStyles":false,"responseHandling":[{"code":"204","swap":false},{"code":"[234]..","swap":true},{"code":"5..","swap":false,"error":true}]}'>
+<title>{{template "title" .}} &ndash; {{iv "name"}}</title>
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/static/css/app.css">
+<script src="/static/js/htmx.min.js" defer></script>
+<script src="/static/js/app.js" defer></script>
+{{block "head" .}}{{end}}
+</head>
+<body>
+<a class="skip-link" href="#content">{{t "Skip to content"}}</a>
+<div class="proto-banner" role="note"><div class="proto-banner__inner"><span>{{noticeShort}}</span> <a href="/privacy#prototype">{{t "What this means"}}</a></div></div>
+<header class="site-header">
+  <div class="site-header__inner">
+    <a class="brand" href="/"><img class="brand__logo" src="/static/favicon.svg" alt="" width="32" height="32"><span class="brand__name">{{iv "masthead"}} <span class="brand__sub">{{iv "masthead_sub"}}</span></span></a>
+    <div class="user-menu">
+      {{if .User.UID}}<details class="menu disclosure account-menu">
+        <summary class="user-menu__name"><span class="visually-hidden">{{t "Signed in as"}} </span>{{or .User.Name .User.Username}}</summary>
+        <ul class="menu__list account-menu__links">
+          {{if .Settings}}<li><a href="/settings"{{if eq .Nav "settings"}} aria-current="page"{{end}}>{{t "About me & how I work"}}</a></li>{{end}}
+          <li><a href="/usage"{{if eq .Nav "usage"}} aria-current="page"{{end}}>{{t "Usage"}}</a></li>
+          {{if .Conns}}<li><a href="/connections"{{if eq .Nav "connections"}} aria-current="page"{{end}}>{{t "Connections (Nextcloud)"}}</a></li>{{end}}
+          <li><a href="/privacy"{{if eq .Nav "privacy"}} aria-current="page"{{end}}>{{t "Privacy"}}</a></li>
+          <li><a href="/environment/delete">{{t "Delete account"}}</a></li>
+          {{if .Admin}}<li><a href="/admin"{{if eq .Nav "admin"}} aria-current="page"{{end}}>{{t "Evaluation"}}</a></li>{{end}}
+          <li><a href="{{logoutURL}}">{{t "Sign out"}}</a></li>
+        </ul>
+      </details>{{end}}
+      <form class="lang-switch" method="post" action="/lang" aria-label="{{t "Language"}}">
+        <input type="hidden" name="next" value="{{.Path}}">
+        <button type="submit" name="lang" value="de" lang="de" title="Deutsch"{{if eq .Lang "de"}} aria-current="true"{{end}}>DE</button><span aria-hidden="true">|</span><button type="submit" name="lang" value="en" lang="en" title="English"{{if eq .Lang "en"}} aria-current="true"{{end}}>EN</button>
+      </form>
+    </div>
+    {{if .User.UID}}
+    {{if ne .Nav "consent"}}
+    <nav class="main-nav" aria-label="{{t "Main navigation"}}">
+      <ul>
+        <li><a href="/"{{if eq .Nav "projects"}} aria-current="page"{{end}}>{{t "My projects"}}</a></li>
+        {{if .TaskAssistants}}<li><a href="/assistants"{{if eq .Nav "assistants"}} aria-current="page"{{end}}>{{t "Assistants"}}</a></li>{{end}}
+        {{if .Tools}}<li><a href="/tools"{{if eq .Nav "tools"}} aria-current="page"{{end}}>{{t "Capabilities"}}</a></li>{{end}}
+        <li><a href="/help"{{if eq .Nav "help"}} aria-current="page"{{end}}>{{t "Help"}}</a></li>
+      </ul>
+    </nav>
+    {{end}}
+    {{end}}
+  </div>
+</header>
+{{block "statusbar" .}}{{end}}
+{{if eq .Nav "admin"}}<div class="statusbar statusbar--warning" role="note"><div class="statusbar__inner"><strong>{{t "For evaluating the prototype only – access is logged"}}</strong></div></div>{{end}}
+<main class="site-main" id="content" tabindex="-1">
+{{with .Notice}}<div class="alert alert--success" role="status"><p>{{.}}</p></div>{{end}}
+{{template "content" .}}
+</main>
+<footer class="site-footer">
+  <div class="site-footer__inner">
+    <ul>
+      <li><a href="/how-it-works">{{t "How this works"}}</a></li>
+      <li><a href="/help">{{t "Help"}}</a></li>
+      <li><a href="/privacy">{{t "Privacy"}}</a></li>
+      <li><a href="/help#contact">{{t "Contact [[team]]"}}</a></li>
+    </ul>
+  </div>
+</footer>
+</body>
+</html>
+{{end}}
+
+{{define "errors"}}{{if .Errors}}
+<div class="alert alert--danger error-summary" role="alert" tabindex="-1" autofocus>
+  <h2>{{t "Please correct"}}</h2>
+  <ul>{{range .Errors}}<li><a href="#{{.Field}}">{{.Msg}}</a></li>{{end}}</ul>
+</div>
+{{end}}{{end}}
+
+{{/* The prototype notice of internal/consent; the argument is zustimmungData. */}}
+{{define "prototype"}}<section class="alert proto-notice" id="prototype" aria-labelledby="prototype-h">
+  <h2 id="prototype-h">{{noticeTitle}}</h2>
+  <ul class="proto-notice__list">{{range noticePoints}}<li>{{.}}</li>{{end}}</ul>
+  {{if .Consented}}<p class="proto-notice__date">{{t "You agreed on %s." .Consented}}</p>
+  {{else}}<p class="proto-notice__date"><a href="/consent">{{t "To the notice and consent"}}</a></p>{{end}}
+</section>{{end}}
+
+{{define "badge"}}{{with status .}}<span class="badge badge--{{badge $}}">{{.}}</span>{{end}}{{end}}
+
+{{define "connection-status"}}{{if .Expired}}<span class="badge badge--error">{{t "Connection expired"}}</span>
+{{else if .Connected}}{{th "<span class=\"badge badge--done\">connected</span> as <strong>%s</strong> since %s" .Login (date .Since)}}
+{{else if eq .Flow.State "pending"}}<span class="badge badge--working">{{t "waiting for you to sign in"}}</span>
+{{else if failed .Flow.State}}<span class="badge badge--error">{{t "Error"}}</span>
+{{else}}<span class="badge badge--idle">{{t "not connected"}}</span>{{end}}{{end}}
+
+{{define "connection-error"}}{{if eq . "mismatch"}}{{t "Please connect your own Nextcloud account. You were signed in with a different account; that access has already been deleted again."}}
+{{else if eq . "timeout"}}{{t "The sign-in was not confirmed within 20\u00a0minutes. Please connect again."}}
+{{else if eq . "failed"}}{{t "The connection could not be established. Please connect again; if the error persists, let [[team]] know."}}{{end}}{{end}}
+
+{{define "connection-buttons"}}{{$from := index . 1}}{{with index . 0}}
+<div class="btn-row">
+  <form method="post" action="/connections/{{.ID}}/connect">{{if $from}}<input type="hidden" name="from" value="{{$from}}">{{end}}<button class="btn btn--small{{if not .Connected}} btn--primary{{end}}" type="submit">{{if .Connected}}{{t "Reconnect"}}{{else}}{{t "Connect"}}{{end}}<span class="visually-hidden">: {{.Title}}</span></button></form>
+  {{if .Connected}}<form method="post" action="/connections/{{.ID}}/disconnect"><button class="btn btn--small btn--danger-outline" type="submit">{{t "Disconnect"}}<span class="visually-hidden">: {{.Title}}</span></button></form>{{end}}
+</div>{{end}}{{end}}
+
+{{define "admin-nav"}}<nav class="admin-nav" aria-label="{{t "Evaluation"}}"><ul>
+  <li><a href="/admin"{{if eq . "overview"}} aria-current="page"{{end}}>{{t "Overview"}}</a></li>
+  <li><a href="/admin/chats"{{if eq . "chats"}} aria-current="page"{{end}}>{{t "Chats"}}</a></li>
+  <li><a href="/admin/feedback"{{if eq . "feedback"}} aria-current="page"{{end}}>{{t "Feedback"}}</a></li>
+</ul></nav>{{end}}
+
+{{define "flags"}}{{range .}}<span class="badge badge--{{if or (eq . "private-data") (eq . "misuse") (eq . "unsuccessful")}}error{{else if eq . "unevaluated"}}idle{{else}}waiting{{end}}">{{flaglabel .}}</span> {{end}}{{end}}
+
+{{define "envbadge"}}<span class="badge badge--{{envbadge .}}">{{envlabel .}}</span>{{end}}

@@ -1,0 +1,45 @@
+{{define "title"}}{{t "Chat – Evaluation"}}{{end}}
+{{define "content"}}
+{{template "admin-nav" "chats"}}
+<p class="breadcrumb"><a href="/admin/chats">{{t "Chats"}}</a></p>
+<div class="page-head">
+  <h1>{{or .D.Title (t "Untitled")}}</h1>
+  <p class="page-head__meta">{{template "flags" .D.Flags}}</p>
+</div>
+
+<dl class="kv section">
+  <div><dt>{{t "Person"}}</dt><dd>{{or .D.DisplayName .D.Username}} ({{.D.Username}})</dd></div>
+  <div><dt>{{t "Project"}}</dt><dd>{{.D.Project}}</dd></div>
+  <div><dt>{{t "Started"}}</dt><dd>{{datetime .D.Created}}</dd></div>
+  <div><dt>{{t "Last active"}}</dt><dd>{{datetime .D.Updated}}</dd></div>
+  <div><dt>{{t "Messages"}}</dt><dd>{{.D.Messages}}</dd></div>
+  <div><dt>{{t "Tool calls"}}</dt><dd>{{t "%d, of which %d failed" .D.ToolCalls .D.ToolErrors}}</dd></div>
+  <div><dt>{{t "Cost"}}</dt><dd>{{eur .D.CostEUR}}</dd></div>
+  <div><dt>{{t "Collected"}}</dt><dd>{{datetime .D.CollectedAt}}{{if .D.Truncated}}{{t ", truncated"}}{{end}}</dd></div>
+  <div><dt>{{t "Chat ID"}}</dt><dd><code>{{.D.SessionID}}</code></dd></div>
+</dl>
+
+<section class="section card" aria-labelledby="eval-h">
+  <h2 id="eval-h" class="card__title">{{t "AI evaluation"}}</h2>
+  {{with .D.E}}
+  <dl class="kv">
+    <div><dt>{{t "Topic"}}</dt><dd>{{.Topic}}</dd></div>
+    {{with .Outcome}}<div><dt>{{t "Result"}}</dt><dd>{{.}}</dd></div>{{end}}
+    <div><dt>{{t "Successful"}}</dt><dd>{{or .Success (t "unknown")}}</dd></div>
+    <div><dt>{{t "Problems"}}</dt><dd>{{range $i, $p := .Problems}}{{if $i}}, {{end}}{{$p}}{{else}}{{t "none"}}{{end}}</dd></div>
+    <div><dt>{{t "Private data"}}</dt><dd>{{if .PrivateData}}<strong>{{t "yes"}}</strong>: {{.PrivateDataReason}}{{else}}{{t "no indication"}}{{end}}</dd></div>
+    <div><dt>{{t "Misuse"}}</dt><dd>{{if .Abuse}}<strong>{{t "yes"}}</strong>: {{.AbuseReason}}{{else}}{{t "no indication"}}{{end}}</dd></div>
+    {{with .Improvements}}<div><dt>{{t "Ideas for improvement"}}</dt><dd><ul>{{range .}}<li>{{.Kind}}: {{.Text}}</li>{{end}}</ul></dd></div>{{end}}
+  </dl>
+  <p class="small muted">{{if eq $.D.Eval.Source "llm"}}{{t "Evaluated by the fast model on %s." (datetime $.D.Eval.EvaluatedAt)}}{{else}}{{t "Evaluated with heuristics only (no model) on %s." (datetime $.D.Eval.EvaluatedAt)}}{{end}}{{if $.D.Stale}} {{t "The chat has changed since; the next run will evaluate it again."}}{{end}}</p>
+  {{else}}
+  <p class="muted">{{t "Not evaluated yet. The next run (daily from 3:00, or “Evaluate now” in the overview) will catch up."}}</p>
+  {{end}}
+</section>
+
+<section class="section" aria-labelledby="verlauf-h">
+  <h2 id="verlauf-h">{{t "Transcript"}}</h2>
+  <p class="small muted">{{t "As in the export: tool calls on one line, errors highlighted, without reasoning and tool output."}}</p>
+  <div class="card transcript">{{range lines .D.Transcript}}<div class="transcript__{{.Kind}}">{{.Text}}</div>{{end}}</div>
+</section>
+{{end}}

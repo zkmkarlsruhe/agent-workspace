@@ -1,0 +1,10 @@
+# Append to ../litellm.yaml; this fragment contains no model or secret settings.
+# The reference manager uses LITELLM_MASTER_KEY, which can access this server.
+# Virtual manager keys need object_permission.mcp_servers: [hello].
+mcp_servers:
+  hello:
+    server_id: hello
+    url: http://hello:8081/mcp
+    transport: http
+    auth_type: none
+    allow_all_keys: false

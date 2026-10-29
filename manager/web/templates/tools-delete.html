@@ -1,0 +1,19 @@
+{{define "title"}}{{t "Delete %s" .D.ID}}{{end}}
+{{define "content"}}
+<p class="breadcrumb"><a href="/tools">{{t "Capabilities"}}</a></p>
+<h1 class="visually-hidden">{{t "Delete saved instructions"}}</h1>
+<dialog class="dialog dialog--inline" open aria-labelledby="loeschen-h">
+  <form method="post" action="/tools/own/{{.D.ID}}/delete">
+    <input type="hidden" name="confirmed" value="yes">
+    <div class="dialog__body">
+      <h2 id="loeschen-h">{{t "Delete these instructions?"}}</h2>
+      {{template "errors" .}}
+      <p>{{th "“%s” and all its files will be deleted. You will no longer be able to use these instructions. <strong>This cannot be undone.</strong>" .D.ID}}</p>
+    </div>
+    <div class="dialog__footer">
+      <a class="btn" href="/tools" data-dialog-close autofocus>{{t "Cancel"}}</a>
+      <button id="confirmed" class="btn btn--danger" type="submit">{{t "Delete"}}</button>
+    </div>
+  </form>
+</dialog>
+{{end}}

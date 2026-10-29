@@ -1,0 +1,14 @@
+{{define "title"}}{{t "Your data is deleted"}}{{end}}
+{{define "content"}}
+<div class="error-page">
+  <h1>{{t "Your data is deleted"}}</h1>
+  <div class="alert alert--success" role="status">
+    <p>{{t "All projects, files, chats and settings are deleted permanently, and so is your environment."}}</p>
+  </div>
+  <p>{{t "If you open [[name]] again, you start with an empty account."}}</p>
+  <div class="btn-row">
+    <a class="btn" href="{{logoutURL}}">{{t "Sign out"}}</a>
+    <a class="btn" href="/">{{t "Start afresh"}}</a>
+  </div>
+</div>
+{{end}}

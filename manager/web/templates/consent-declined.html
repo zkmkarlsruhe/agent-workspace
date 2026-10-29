@@ -1,0 +1,15 @@
+{{define "title"}}{{t "Not agreed"}}{{end}}
+{{define "content"}}
+<div class="error-page">
+  <h1>{{t "You did not agree"}}</h1>
+  <div class="alert alert--success" role="status">
+    {{if .D.Previous}}<p>{{t "Your refusal was not stored. Your existing projects are kept; you can only use [[name]] again once you agree."}}</p>
+    {{else}}<p>{{t "Nothing was stored."}}</p>{{end}}
+  </div>
+  <p>{{t "You cannot use [[name]] without agreeing. If you change your mind, you can go back to the notice at any time."}}</p>
+  <div class="btn-row">
+    <a class="btn" href="{{logoutURL}}">{{t "Sign out"}}</a>
+    <a class="btn btn--quiet" href="/consent">{{t "Back to the notice"}}</a>
+  </div>
+</div>
+{{end}}

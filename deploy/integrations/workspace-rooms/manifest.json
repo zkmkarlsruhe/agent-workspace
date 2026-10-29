@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "name": "workspace-rooms",
+  "version": "0.1.0",
+  "runs": "builtin",
+  "tools": [
+    "house_events",
+    "rooms_free",
+    "bikes_free",
+    "my_bookings"
+  ],
+  "scopes": [
+    "users:read"
+  ],
+  "health": "optional",
+  "requires_opencode": ">=2.2.0 <2.3"
+}

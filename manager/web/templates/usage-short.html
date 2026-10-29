@@ -1,0 +1,2 @@
+{{/* Kurzform Verbrauch, Punkt = Project oder Chat (CostEUR, CO2MinG, CO2MaxG); ohne CO2-Wert (unbekanntes Modell, alte Zeilen) nur Euro */}}
+{{define "usage-short"}}{{eur .CostEUR}}{{if .CO2MaxG}} &middot; {{co2 .CO2MinG .CO2MaxG}} CO<sub>2</sub>{{end}}{{end}}

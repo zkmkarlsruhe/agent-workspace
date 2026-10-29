@@ -1,0 +1,46 @@
+{{define "title"}}{{t "Delete all my data"}}{{end}}
+{{define "content"}}
+<p class="breadcrumb"><a href="/environment">{{t "My environment"}}</a></p>
+<div class="page-head">
+  <div>
+    <h1>{{t "Delete all my data"}}</h1>
+    <p class="page-head__lead">{{t "This permanently deletes everything you have in [[name]]. It cannot be undone, not even by [[team]]."}}</p>
+  </div>
+</div>
+{{template "errors" .}}
+
+<section class="section" aria-labelledby="what-h">
+  <h2 id="what-h">{{t "What will be deleted"}}</h2>
+  <ul>
+    <li>{{t "all projects with all files, including those in the Trash"}}</li>
+    <li>{{t "all chats with the helper"}}</li>
+    <li>{{t "your settings, your own skills and what the helper has remembered"}}</li>
+    <li>{{t "your environment; running tasks are cancelled"}}</li>
+  </ul>
+  <p>{{th "Only the usage figures (cost and CO<sub>2</sub>) remain, with no link to you, so that the totals of [[name]] stay correct. Your [[organization]] account remains. If you open [[name]] again, you start with an empty account."}}</p>
+</section>
+
+<section class="section" aria-labelledby="vorher-h">
+  <h2 id="vorher-h">{{t "Export first"}}</h2>
+  <p>{{t "First download what you want to keep: a ZIP file with all projects, files and chats."}}</p>
+  <p><a class="btn btn--primary" href="/environment/export" download>{{t "Export my data"}}</a></p>
+</section>
+
+<section class="section" aria-labelledby="endgueltig-h">
+  <h2 id="endgueltig-h">{{t "Delete permanently"}}</h2>
+  <form class="form" method="post" action="/environment/delete">
+    {{$e := fielderror .Errors "confirmation"}}
+    <div class="field{{if $e}} field--invalid{{end}}">
+      <label class="field__label" for="confirmation">{{t "Type DELETE to confirm"}}</label>
+      <span class="field__help" id="confirmation-help">{{t "In capital letters, without quotation marks."}}</span>
+      <input class="input" id="confirmation" name="confirmation" type="text" required autocomplete="off" spellcheck="false" autocapitalize="characters"
+        aria-describedby="confirmation-help{{if $e}} confirmation-error{{end}}"{{if $e}} aria-invalid="true"{{end}}>
+      {{with $e}}<p class="field__error" id="confirmation-error">{{.}}</p>{{end}}
+    </div>
+    <div class="btn-row">
+      <a class="btn" href="/environment">{{t "Cancel"}}</a>
+      <button class="btn btn--danger" type="submit">{{t "Delete all my data permanently"}}</button>
+    </div>
+  </form>
+</section>
+{{end}}

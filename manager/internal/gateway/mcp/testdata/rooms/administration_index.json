@@ -1,0 +1,23 @@
+{
+    "instance": "verwaltung",
+    "generated": "2026-10-18T07:09:38+00:00",
+    "window": {
+        "from": "2026-10-11",
+        "to": "2027-11-22"
+    },
+    "all": "all.ics",
+    "rooms": [
+        {
+            "id": 101,
+            "room": "Room A",
+            "area": "Area A",
+            "feed": "101.ics"
+        },
+        {
+            "id": 102,
+            "room": "Room B",
+            "area": "Area A",
+            "feed": "102.ics"
+        }
+    ]
+}

@@ -1,0 +1,23 @@
+{
+    "instance": "bikes",
+    "generated": "2026-10-18T07:09:53+00:00",
+    "window": {
+        "from": "2026-10-11",
+        "to": "2027-11-22"
+    },
+    "all": "all.ics",
+    "rooms": [
+        {
+            "id": 201,
+            "room": "Bike A",
+            "area": "Area B",
+            "feed": "201.ics"
+        },
+        {
+            "id": 202,
+            "room": "Bike B",
+            "area": "Area B",
+            "feed": "202.ics"
+        }
+    ]
+}

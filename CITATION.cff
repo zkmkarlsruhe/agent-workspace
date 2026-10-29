@@ -1,0 +1,16 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+type: software
+title: "Agent Workspace"
+abstract: "Self-hosted multi-user workspace built on OpenCode. Evaluation-only prototype."
+authors:
+  - family-names: "Schütze"
+    given-names: "Marc"
+    affiliation: "ZKM | Center for Art and Media Karlsruhe"
+    orcid: "https://orcid.org/0009-0007-0718-4251"
+repository-code: "https://github.com/zkmkarlsruhe/agent-workspace"
+url: "https://github.com/zkmkarlsruhe/agent-workspace"
+keywords:
+  - "self-hosted workspace"
+  - "museum technology"
+license: MIT

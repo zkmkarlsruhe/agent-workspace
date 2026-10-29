@@ -1,0 +1,71 @@
+{{define "title"}}{{t "All projects"}}{{end}}
+{{define "content"}}
+<div class="page-head"><h1>{{t "All projects"}}</h1><p><a href="/">{{t "Start a project"}}</a></p></div>
+{{with .D.Projects}}
+{{/* While the environment starts, the cards reload themselves until the chats are there; the swapped-in section without hx-trigger ends the polling. */}}
+<section class="section page-wide" id="karten" aria-labelledby="weiter-h"{{if eq $.D.Env "starting"}} hx-get="/projects" hx-select="#karten" hx-target="#karten" hx-swap="outerHTML" hx-trigger="every 2s"{{end}}>
+  <h2 class="visually-hidden" id="weiter-h">{{t "Projects"}}</h2>
+  {{if eq $.D.Env "stopped"}}<p class="muted">{{t "Your environment is asleep. It starts when you open a chat, which takes about 20 seconds."}}</p>
+  {{else if eq $.D.Env "starting"}}<p class="muted" role="status">{{t "Your environment is starting, which takes about 20 seconds. Your chats will then appear here."}} <a href="/projects">{{t "Reload"}}</a></p>
+  {{else if eq $.D.Env "full"}}<div class="alert alert--warning" role="status"><p>{{t "All places are taken right now, please try again in a few minutes."}}</p>
+    <div class="btn-row"><a href="/projects">{{t "Reload"}}</a></div>
+  </div>
+  {{else if eq $.D.Env "error"}}<div class="alert alert--danger"><p>{{t "Your environment could not start."}}</p>
+    <div class="btn-row"><form method="post" action="/environment/start"><button class="btn btn--small" type="submit">{{t "Try again"}}</button></form><a href="/environment">{{t "Environment"}}</a></div>
+  </div>{{end}}
+  <ul class="project-list card-grid">
+    {{range .}}
+    {{$n := .Name}}
+    <li class="card project-row project-row--card">
+      <h3 class="project-row__title"><a href="/projects/{{$n}}">{{$n}}</a></h3>
+      <p class="project-row__meta">{{template "badge" .Status}} <span class="muted">{{t "last used %s" (when .LastActivity)}}{{if stale .LastActivity}} &middot; {{t "not used for a long time"}}{{end}}</span> <span class="muted">&middot; {{template "usage-short" .}} ({{t "30\u00a0days"}})</span></p>
+      {{if eq .Status "fehler"}}
+      <p class="project-row__desc">{{t "The helper stopped with an error."}}</p>
+      <div class="project-row__actions">
+        {{with .Recent}}{{$c := index . 0}}{{range .}}{{if eq .Status "fehler"}}{{$c = .}}{{break}}{{end}}{{end}}
+        <a class="btn btn--small btn--primary" href="{{$c.Link}}">{{t "Check in the chat: %s" (or $c.Title (t "Untitled"))}}</a>{{end}}
+        <form method="post" action="/projects/{{$n}}/open" data-once><button class="btn btn--small" type="submit">{{t "New task"}}<span class="visually-hidden">: {{$n}}</span></button></form>
+        <a class="btn btn--small" href="/projects/{{$n}}#results">{{t "Results"}}<span class="visually-hidden">: {{$n}}</span></a>
+      </div>
+      {{else if .Recent}}
+      <ul class="project-row__chats">
+        {{range $i, $c := .Recent}}{{if lt $i 3}}{{template "chatrow" (chatrow $c (eq $i 0))}}{{end}}{{end}}
+      </ul>
+      {{if gt (len .Recent) 3}}
+      <details class="disclosure project-row__more">
+        <summary>{{t "Older chats (%d)" (len (slice .Recent 3))}}</summary>
+        <ul class="project-row__chats">
+          {{range $i, $c := .Recent}}{{if ge $i 3}}{{template "chatrow" (chatrow $c false)}}{{end}}{{end}}
+        </ul>
+      </details>
+      {{end}}
+      <div class="project-row__actions">
+        <a class="btn btn--small" href="/projects/{{$n}}#results">{{t "Results"}}<span class="visually-hidden">: {{$n}}</span></a>
+      </div>
+      {{else}}
+      <div class="project-row__actions">
+        <form method="post" action="/projects/{{$n}}/open" data-once>{{if .Description}}<input type="hidden" name="brief" value="1"><button class="btn btn--small btn--primary" type="submit">{{t "Get started"}}<span class="visually-hidden">: {{$n}}</span></button>{{else}}<button class="btn btn--small btn--primary" type="submit">{{t "New task"}}<span class="visually-hidden">: {{$n}}</span></button>{{end}}</form>
+        <a class="btn btn--small" href="/projects/{{$n}}#results">{{t "Results"}}<span class="visually-hidden">: {{$n}}</span></a>
+      </div>
+      {{end}}
+      {{if ne .Status "arbeitet"}}{{if soon .TrashAt}}<p class="project-row__desc small muted">{{t "If unused, it moves to the Trash on %s." (date .TrashAt)}}</p>{{end}}
+      <p class="project-row__trash"><a href="/projects/{{$n}}/delete" data-dialog>{{t "Move to Trash"}}<span class="visually-hidden">: {{$n}}</span></a></p>{{end}}
+    </li>
+    {{end}}
+  </ul>
+</section>
+{{else}}
+<div class="empty">
+  <h2 class="empty__title">{{t "No projects yet"}}</h2>
+  <p><a href="/">{{t "Start a project"}}</a></p>
+</div>
+{{end}}
+<p class="small"><a href="/trash">{{t "Trash (%d)" .D.Trash}}</a></p>
+{{end}}
+
+{{define "chatrow"}}
+        <li>
+          <a class="btn btn--small{{if .Primary}} btn--primary{{end}}" href="{{.Chat.Link}}">{{t "Continue: %s" (or .Chat.Title (t "Untitled"))}}</a>
+          <span class="muted">{{when .Chat.Updated}}</span>
+        </li>
+{{end}}

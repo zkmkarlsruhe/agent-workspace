@@ -1,0 +1,87 @@
+{{define "title"}}{{t "Help"}}{{end}}
+{{define "content"}}
+<div class="page-head">
+  <div>
+    <h1>{{t "Help"}}</h1>
+    <p><a href="/environment">{{t "Environment"}}</a></p>
+    <p class="page-head__lead">{{t "Answers to frequent questions. Not covered here? Write to the [[team]] team."}}</p>
+    <p>{{th "For an overview of what [[name]] is and where its limits are, see <a href=\"%s\">How this works</a>." "/how-it-works"}}</p>
+  </div>
+</div>
+
+{{template "prototype" .D}}
+
+<div class="faq">
+  <details class="disclosure">
+    <summary>{{t "Where are my personal settings?"}}</summary>
+    <div class="faq__answer"><p>{{if .Conns}}{{t "Open the menu under your name for About me & how I work, Usage, Connections (Nextcloud), Privacy and Delete account."}}{{else}}{{t "Open the menu under your name for About me & how I work, Usage, Privacy and Delete account."}}{{end}}</p></div>
+  </details>
+  <details open>
+    <summary>{{t "What happens to my data?"}}</summary>
+    <div class="faq__answer">
+      <p>{{th "Your projects are stored on a [[organization]] server. Whatever you give the helper and whatever it reads is sent to a language model. Which providers these are and where they are based is set out in the <a href=\"/privacy\">privacy notice</a>."}}</p>
+      <p>{{ic "evaluation_help"}}</p>
+    </div>
+  </details>
+  <details class="disclosure">
+    <summary>{{t "How do I get started?"}}</summary>
+    <div class="faq__answer"><p>{{t "On the start page, describe the task under “What should the helper do?”, attach documents with “Add files” if needed, and click “Get started”. This creates a project, uploads the files and opens the chat with the helper."}}</p><p>{{t "The portal derives the project name from your description. You can change it on the project page."}}</p></div>
+  </details>
+  {{if .Setup}}<details class="disclosure" id="einrichtung">
+    <summary>{{t "Where can I find the setup from my first visit?"}}</summary>
+    <div class="faq__answer"><p>{{th "You can go through the short introduction again at any time: <a href=\"%s\">Restart setup</a>. It is also available under <a href=\"%s\">Environment</a>." "/onboarding" "/environment#einrichten"}}</p></div>
+  </details>{{end}}
+  {{if .Conns}}<details class="disclosure" id="verbindungen">
+    <summary>{{t "Can the helper access my Nextcloud?"}}</summary>
+    <div class="faq__answer"><p>{{th "Only if you allow it under <a href=\"/connections\">Connections</a>. It then reads your Nextcloud: it sees your folders, searches by file name and fetches files into the inbox of a project. It can only write into your folder “[[nextcloud_root]]”; its results appear there, and you can put files there for it too. It cannot delete anything in your Nextcloud. [[name]] never sees your Nextcloud password: Nextcloud creates a separate access password, which is stored encrypted with the portal and never in your environment."}}</p><p>{{t "“Disconnect” deletes that access again, both in Nextcloud and here. If the helper reports “Nextcloud is not connected”, reconnect under Connections."}}</p></div>
+  </details>{{end}}
+  <details class="disclosure">
+    <summary>{{t "Where do I see answers and results?"}}</summary>
+    <div class="faq__answer"><p>{{th "Answers and research appear in the chat first. The helper only creates a file if you ask for one, for example “Save this as a report”. It then ends up in <code>[[folders.results]]</code>."}}</p></div>
+  </details>
+  <details class="disclosure">
+    <summary>{{t "What is on a project page?"}}</summary>
+    <div class="faq__answer">
+      <p>{{if .Capabilities.pdf}}{{th "At the top, the <strong>Results</strong>: every file with a download, texts also “As PDF”, and “All as ZIP”. Below that, <strong>My files</strong> with everything you have uploaded (folder <code>[[folders.inbox]]</code>), where you can add more files. Then the <strong>Chats</strong>: “Continue” picks up a chat, “New task” starts a new one."}}{{else}}{{th "At the top, the <strong>Results</strong>: every file with a download, and “All as ZIP”. Below that, <strong>My files</strong> with everything you have uploaded (folder <code>[[folders.inbox]]</code>), where you can add more files. Then the <strong>Chats</strong>: “Continue” picks up a chat, “New task” starts a new one."}}{{end}}</p>
+      <p>{{th "Collapsed under <strong>Work in progress</strong> is what the helper creates along the way (folder <code>[[folders.work]]</code>). “Everything as ZIP” there packs the whole project."}}</p>
+    </div>
+  </details>
+  <details class="disclosure">
+    <summary>{{t "How do I undo something?"}}</summary>
+    <div class="faq__answer"><p>{{t "In the chat you can jump back to an earlier message. The helper then also resets the files to that point."}}</p><p>{{th "After “Move to Trash” the start page shows “Undo”. After that, the project stays in the <a href=\"%s\">Trash</a> for another 30&nbsp;days and can be restored from there with all its files and chats." "/trash"}}</p></div>
+  </details>
+  <details class="disclosure" id="aufraeumen">
+    <summary>{{t "Are old projects deleted?"}}</summary>
+    <div class="faq__answer"><p>{{t "Projects that are not used for 30\u00a0days move to the Trash, where they are deleted after another 30\u00a0days. Used means: a chat, a new or changed file, an upload or a download. A week beforehand, the start page shows the day on which the project will go to the Trash. You can bring it back from the Trash with “Restore”."}}</p></div>
+  </details>
+  <details class="disclosure" id="daten">
+    <summary>{{t "How do I get all my data, and how do I delete it?"}}</summary>
+    <div class="faq__answer"><p>{{th "<a href=\"%s\" download>Export my data</a> downloads a ZIP file with all projects, their files and every chat as readable text, including the Trash. To export a single project, use “Export project” on its page." "/environment/export"}}</p><p>{{th "At the very bottom of <a href=\"%s\">Environment</a> you can permanently delete all your data. If you open [[name]] again afterwards, you start with an empty account." "/environment#daten"}}</p></div>
+  </details>
+  <details class="disclosure">
+    <summary>{{t "Why does the helper ask questions?"}}</summary>
+    <div class="faq__answer"><p>{{t "When a task is unclear, or when it wants to do something you have to allow. The project then shows “waiting for your reply”. Answer in the chat and it carries on."}}</p></div>
+  </details>
+  <details class="disclosure">
+    <summary>{{t "What does it cost?"}}</summary>
+    <div class="faq__answer"><p>{{th "Every task costs money for the language model and causes CO<sub>2</sub>. Under <a href=\"%s\">Usage</a> you can see both for the last 30&nbsp;days, per project. CO<sub>2</sub> is an estimate and is therefore shown as a range." "/usage"}} {{with dayBudget}}{{th "The daily budget is %s per person, <a href=\"%s\">more on this</a>." . "/how-it-works#limits"}}{{else}}{{t "There is no budget and no limit."}}{{end}}</p></div>
+  </details>
+  <details class="disclosure">
+    <summary>{{t "I deleted a project. Why do I still see its chats in the chat window?"}}</summary>
+    <div class="faq__answer"><p>{{t "As long as the project is in the Trash, its chats are kept so that you can restore it. They are deleted for good together with the project."}}</p></div>
+  </details>
+  <details class="disclosure">
+    <summary>{{t "Why is the chat interface in another language?"}}</summary>
+    <div class="faq__answer"><p>{{t "The chat follows your browser language. Set your preferred language first in the browser settings, or choose the language in the chat under Settings."}}</p></div>
+  </details>
+  <details class="disclosure">
+    <summary>{{t "What does “environment asleep” mean?"}}</summary>
+    <div class="faq__answer"><p>{{t "After %d\u00a0minutes without activity your environment stops. While the helper is working, it does not go to sleep. “Continue” or “New task” starts it automatically, which usually takes a few seconds. Projects, files and chats are kept." idleMinutes}}</p></div>
+  </details>
+  <details class="disclosure" id="contact">
+    <summary>{{t "Who do I ask?"}}</summary>
+    <div class="faq__answer"><p>{{th "The [[team]] team in the Element room <a href=\"%s\">[[support_label]]</a>." (iv "support_url")}}</p></div>
+  </details>
+</div>
+{{if .Feedback}}<section class="section">{{template "feedback-form" ""}}</section>{{end}}
+{{end}}

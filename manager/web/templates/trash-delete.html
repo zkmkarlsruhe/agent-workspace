@@ -1,0 +1,19 @@
+{{define "title"}}{{t "Delete %s permanently" .D.Name}}{{end}}
+{{define "content"}}
+<p class="breadcrumb"><a href="/trash">{{t "Trash"}}</a></p>
+<h1 class="visually-hidden">{{t "Delete permanently"}}</h1>
+<dialog class="dialog dialog--inline" open aria-labelledby="endgueltig-h">
+  <form method="post" action="/trash/{{.D.ID}}/delete">
+    <input type="hidden" name="confirmed" value="yes">
+    <div class="dialog__body">
+      <h2 id="endgueltig-h">{{t "Delete permanently?"}}</h2>
+      {{template "errors" .}}
+      <p>{{if .D.SizeBytes}}{{t "“%s” will be deleted: all files (%s) and all %d chats." .D.Name (gb .D.SizeBytes) .D.Chats}}{{else}}{{t "“%s” will be deleted: all files and all %d chats." .D.Name .D.Chats}}{{end}} <strong>{{t "This cannot be undone."}}</strong></p>
+    </div>
+    <div class="dialog__footer">
+      <a class="btn" href="/trash" data-dialog-close autofocus>{{t "Cancel"}}</a>
+      <button id="confirmed" class="btn btn--danger" type="submit">{{t "Delete permanently"}}</button>
+    </div>
+  </form>
+</dialog>
+{{end}}

@@ -1,0 +1,59 @@
+name: CI
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: agent-workspace
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: agent-workspace
+      - uses: actions/checkout@v4
+        with:
+          repository: zkmkarlsruhe/agent-workspace-docs
+          path: agent-workspace-docs
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: agent-workspace/manager/go.mod
+          cache-dependency-path: |
+            agent-workspace/manager/go.sum
+            agent-workspace/examples/mcp-hello/go.sum
+      - name: Format
+        run: test -z "$(gofmt -l manager examples/mcp-hello)"
+      - name: Vet
+        working-directory: agent-workspace/manager
+        run: go vet ./...
+      - name: Test
+        working-directory: agent-workspace/manager
+        run: go test -count=1 ./...
+      - name: Minimal reference
+        working-directory: agent-workspace/manager
+        env:
+          REFINSTANCE: minimal
+        run: go test -count=1 -run '^TestRefInstanceMinimal$' -timeout 2m ./cmd/manager
+      - name: Rendered instance
+        working-directory: agent-workspace/manager
+        run: go run ./cmd/render-instance -instance ../instance/minimal/instance.yaml -out ../instance/minimal/rendered -check
+      - name: MCP example
+        working-directory: agent-workspace/examples/mcp-hello
+        run: |
+          go vet ./...
+          go test -count=1 ./...
+      - name: Secret scanner
+        run: |
+          go install github.com/zricethezav/gitleaks/v8@v8.30.1
+          gitleaks dir . --no-banner --redact --ignore-gitleaks-allow
+      - name: Export checks
+        run: python3 -I -B -m unittest discover -s tests/export -v
+      - name: Catalog checks
+        run: |
+          python3 -m venv /tmp/workspace-ci-venv
+          /tmp/workspace-ci-venv/bin/pip install PyYAML openpyxl matplotlib pandas
+          /tmp/workspace-ci-venv/bin/python -I -B deploy/etc-opencode/tests/lint.py deploy/etc-opencode deploy/catalog
+          /tmp/workspace-ci-venv/bin/python -I -B deploy/catalog/tests/test_lint.py
+          /tmp/workspace-ci-venv/bin/python -I -B deploy/catalog/tests/event-planning/test_schedule.py
+          /tmp/workspace-ci-venv/bin/python -I -B -m unittest discover -s deploy/etc-opencode/tests -p 'test_skill_*.py' -v

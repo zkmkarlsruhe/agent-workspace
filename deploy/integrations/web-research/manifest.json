@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "name": "web-research",
+  "version": "0.1.0",
+  "runs": "builtin",
+  "enabled_by_default": true,
+  "tools": [
+    "web_search",
+    "web_read"
+  ],
+  "health": "optional",
+  "requires_opencode": ">=2.2.0 <2.3"
+}

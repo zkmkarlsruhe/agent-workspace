@@ -1,0 +1,118 @@
+{{define "title"}}{{t "How this works"}}{{end}}
+{{define "content"}}
+<div class="page-head">
+  <div>
+    <h1>{{t "How this works"}}</h1>
+    <p class="page-head__lead">{{t "What [[name]] is, what happens to your data and where the limits are, in short sections."}}</p>
+  </div>
+</div>
+
+<nav class="toc" aria-label="{{t "On this page"}}">
+  <ul>
+    <li><a href="#what">{{t "What is this?"}}</a></li>
+    <li><a href="#workspace">{{t "Your workspace"}}</a></li>
+    <li><a href="#models">{{t "The AI models"}}</a></li>
+    <li><a href="#tools">{{t "Capabilities"}}</a></li>
+    {{if .Conns}}<li><a href="#nextcloud">{{t "Nextcloud"}}</a></li>{{end}}
+    <li><a href="#limits">{{t "Limits and costs"}}</a></li>
+    <li><a href="#security">{{t "Security"}}</a></li>
+    <li><a href="#feedback-help">{{t "Feedback and help"}}</a></li>
+  </ul>
+</nav>
+
+<section class="section" id="what" aria-labelledby="what-h">
+  <div class="section__head"><h2 id="what-h">{{t "What is this?"}}</h2></div>
+  <p>{{t "[[name]] gives you a helper that does tasks for you: research, writing texts, analysing spreadsheets, converting files. Behind it is a language model, an AI that understands and writes text."}}</p>
+  <p>{{t "[[name]] is a prototype. What this means for you is set out in the notice everyone agrees to before starting:"}}</p>
+  {{template "prototype" .D}}
+</section>
+
+<section class="section" id="workspace" aria-labelledby="workspace-h">
+  <div class="section__head"><h2 id="workspace-h">{{t "Your workspace"}}</h2></div>
+  <p>{{t "Every person has an environment of their own: a sealed-off area on a [[organization]] server (a so-called container) where only their helper works."}}</p>
+  <p>{{th "Every task gets a project of its own, that is a folder: <code>[[folders.inbox]]</code> for your files, <code>[[folders.work]]</code> for drafts, <code>[[folders.results]]</code> for finished files. Projects, files, chats and settings are kept until you delete them."}}</p>
+  {{with idleMinutes}}<p>{{t "After %d minutes without activity your environment goes to sleep, but never while the helper is working. When you open a chat or start a new task, it wakes up within a few seconds. Nothing is lost." .}}</p>{{end}}
+  <p>{{th "Deleted projects stay in the <a href=\"%s\">Trash</a> for 30&nbsp;days and can be restored with all files and chats; after that they are deleted for good. Projects not used for 30&nbsp;days move to the Trash by themselves; the start page says so a week before." "/trash"}}</p>
+  <p>{{th "<a href=\"%s\" download>Export my data</a> downloads a ZIP file with all projects, files and chats." "/environment/export"}}</p>
+  <p>{{th "Under <a href=\"%s\">Environment</a> you can delete all your data for good: projects including the Trash, chats, settings, own skills and the environment itself. A Nextcloud connection is revoked, your files in Nextcloud stay. Only usage figures (costs and CO<sub>2</sub>) remain, with no link to you." "/environment#daten"}}</p>
+</section>
+
+<section class="section" id="models" aria-labelledby="models-h">
+  <div class="section__head"><h2 id="models-h">{{t "The AI models"}}</h2></div>
+  {{with ic "providers_intro"}}<p>{{.}}</p>{{end}}
+  {{if ic "providers_standard"}}<dl class="kv">
+    <dt>{{t "Standard"}}</dt><dd>{{ic "providers_standard"}}</dd>
+    <dt>{{t "Fast and cheap"}}</dt><dd>{{ic "providers_fast"}}</dd>
+    <dt>{{t "Thorough"}}</dt><dd>{{ic "providers_thorough"}}</dd>
+    {{if and .Capabilities.image_view .Capabilities.image_edit}}<dt>{{t "Images"}}</dt><dd>{{ic "providers_images"}}</dd>{{end}}
+  </dl>{{end}}
+  <p>{{ic "providers"}}</p>
+  {{if .Capabilities.image_generate}}<p>{{th "Anything an AI has created must be labelled as AI-generated when you publish or pass it on (labelling duty under the EU AI Act, Article&nbsp;50). [[name]] labels created images itself: the file name ends in <code>-ki</code>, and the file says “KI-generiert” (AI-generated)."}}</p>{{end}}
+</section>
+
+<section class="section" id="tools" aria-labelledby="tools-h">
+  <div class="section__head"><h2 id="tools-h">{{t "Capabilities"}}</h2></div>
+  <p>{{t "Capabilities are skills the helper uses in addition to writing. Availability depends on the enabled capabilities:"}}</p>
+  {{if .ProjectScoped}}<p>{{t "Choose capabilities for each project; only selected capabilities are available in its chats."}}</p>{{end}}
+  <dl class="kv">
+    {{if index .Capabilities "web"}}<dt>{{t "Search and read the web"}}</dt><dd>{{.CapabilityCopy.web}}</dd>{{end}}
+    {{if index .Capabilities "office"}}<dt>{{t "Office files"}}</dt><dd>{{t "reads and creates Word, Excel, PDF and CSV tables and draws charts."}}</dd>{{end}}
+    {{if index .Capabilities "md-to-pdf"}}<dt>{{t "PDF from Markdown"}}</dt><dd>{{.CapabilityCopy.pdf}}</dd>{{end}}
+    {{if index .Capabilities "image_view"}}<dt>{{t "Look at an image"}}</dt><dd>{{t "describes an image from your project, such as a photo or a scan."}}</dd>{{end}}
+    {{if index .Capabilities "image_generate"}}<dt>{{t "Create an image"}}</dt><dd>{{if .Capabilities.image_edit}}{{th "creates an image from your description or changes an existing one, only when you ask for it. It goes to <code>[[folders.results]]</code>."}}{{else}}{{th "creates an image from your description, only when you ask for it. It goes to <code>[[folders.results]]</code>."}}{{end}}</dd>{{end}}
+    {{if .Conns}}<dt>{{t "Nextcloud"}}</dt><dd>{{t "reads your Nextcloud and puts results there once you have connected it (see below)."}}</dd>{{end}}
+    {{if index .Capabilities "feedback_send"}}<dt>{{t "Feedback for [[recipient]]"}}</dt><dd>{{t "sends a problem, an idea, praise or a question to [[recipient]] when you ask for it (see below)."}}</dd>{{end}}
+  </dl>
+  {{if .Tools}}<p>{{t "These you switch on when you need them:"}}</p>{{end}}
+  <dl class="kv">
+    {{if index .Capabilities "rooms"}}<dt>{{t "Rooms, bikes and events at the [[organization]]"}}</dt><dd>{{t "reads the [[organization]] timeline, shows free meeting rooms, free service bikes and your own bookings. It never books or cancels: you get the link to the booking page or a mail text to copy."}}</dd>{{end}}
+    {{if index .Capabilities "workspace-knowledge"}}<dt>{{t "Search [[organization]] knowledge"}}</dt><dd>{{.CapabilityCopy.knowledge}}</dd>{{end}}
+    {{if index .Capabilities "library"}}<dt>{{t "Library (OPAC)"}}</dt><dd>{{.CapabilityCopy.library}}</dd>{{end}}
+    {{if index .Capabilities "media"}}<dt>{{t "Convert media"}}</dt><dd>{{t "edits videos, audio and images in the project, in a separate container without internet. Demo."}}</dd>{{end}}
+    {{if index .Capabilities "guides"}}<dt>{{t "Guides for texts"}}</dt><dd>{{t "minutes, letters and mails, press texts, translations, plain language, image descriptions, presentations, event planning and travel expenses."}}</dd>{{end}}
+  </dl>
+  {{if .Tools}}<p>{{th "You switch them on and off under <a href=\"%s\">Capabilities</a>. Only switch on what you need: the helper weighs every skill that is on at every step." "/tools"}}</p>{{end}}
+  {{if .Tools}}<p>{{t "Tell the helper, for example, “Remember how we analyse visitor numbers”. It then creates a skill of your own that only you have. Under Capabilities you can see it and delete it; once deleted, it is gone for good."}}</p>{{end}}
+</section>
+
+{{if .Conns}}<section class="section" id="nextcloud" aria-labelledby="nextcloud-h">
+  <div class="section__head"><h2 id="nextcloud-h">{{t "Nextcloud"}}</h2></div>
+  <p>{{th "Under <a href=\"%s\">Connections</a> you can connect your Nextcloud. Then:" "/connections"}}</p>
+  <ul>
+    <li>{{t "The helper reads everything you can read in your Nextcloud."}}</li>
+    <li>{{t "It can only write to your folder “[[nextcloud_root]]”. Its results appear there, and you can put files there for it."}}</li>
+    <li>{{t "It never deletes anything in your Nextcloud."}}</li>
+    <li>{{t "It never overwrites a file you have changed. It puts its version next to it as a copy “Name (Helfer)”."}}</li>
+    <li>{{t "It cannot reach calendars, contacts, shares, Talk, Deck or Mail."}}</li>
+    <li>{{t "[[name]] never sees your Nextcloud password. Nextcloud creates an app password of its own, an access key for this purpose only. It is stored encrypted with the portal, never in your environment, and “Disconnect” under Connections revokes it."}}</li>
+  </ul>
+</section>{{end}}
+
+<section class="section" id="limits" aria-labelledby="limits-h">
+  <div class="section__head"><h2 id="limits-h">{{t "Limits and costs"}}</h2></div>
+  {{with dayBudget}}<p>{{t "Every person has a daily budget of %s for the language and image models. The day starts at midnight ([[timezone]])." .}}</p>
+  <p>{{t "Once the budget is reached, the helper does not answer any more that day. You can still view and download projects and files; it continues the next day."}}</p>
+  {{else}}<p>{{t "There is no budget and no limit."}}</p>{{end}}
+  {{with slots}}<p>{{t "At most %d environments run at the same time; sleeping ones do not count. If all places are taken, the portal tells you. Then try again in a few minutes." .}}</p>{{end}}
+  <p>{{th "Under <a href=\"%s\">Usage</a> you can see per project what your tasks cost in the last 30&nbsp;days and roughly how much CO<sub>2</sub> they caused. CO<sub>2</sub> is an estimate and is therefore shown as a range; <a href=\"%s\">how it is calculated</a>." "/usage" "/usage/method"}}</p>
+</section>
+
+<section class="section" id="security" aria-labelledby="security-h">
+  <div class="section__head"><h2 id="security-h">{{t "Security"}}</h2></div>
+  <ul>
+    <li>{{t "Your helper only sees your own projects, never other people’s data."}}</li>
+    <li>{{t "No passwords or keys are stored in your environment. The portal adds the access to the models and to Nextcloud from outside."}}</li>
+    <li>{{t "Your environment only reaches package sources on the internet, that is servers with software components. The helper reads web pages only through the portal’s tools."}}</li>
+    <li>{{t "It deletes nothing in your Nextcloud, books no rooms or bikes and sends no mails. You get mail texts to copy."}}</li>
+    <li>{{t "Web pages can contain hidden instructions to the helper. So check results from the web with particular care."}}</li>
+    <li>{{t "Do not enter passwords, login details or personnel data, neither in the chat nor in files."}}</li>
+  </ul>
+</section>
+
+<section class="section" id="feedback-help" aria-labelledby="feedback-help-h">
+  <div class="section__head"><h2 id="feedback-help-h">{{t "Feedback and help"}}</h2></div>
+  {{if .Capabilities.feedback_send}}<p>{{t "Write in the chat, for example, “Report this to [[recipient]]”. The helper sums up your feedback, has you confirm it and sends it to [[recipient]] with the last messages of the chat. Only he reads it."}}</p>{{end}}
+  {{if .Feedback}}<p>{{th "Without a chat, use the <a href=\"%s\">form on the help page</a>." "/help#feedback"}}</p>{{end}}
+  <p>{{th "Answers to frequent questions are under <a href=\"%s\">Help</a>. The [[team]] team answers further questions in the Element room <a href=\"%s\">[[support_label]]</a>." "/help" (iv "support_url")}}</p>
+</section>
+{{end}}

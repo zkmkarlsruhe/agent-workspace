@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "name": "images",
+  "version": "0.1.0",
+  "runs": "builtin",
+  "tools": [
+    "image_generate",
+    "image_view"
+  ],
+  "scopes": [
+    "workspace:read",
+    "workspace:write",
+    "llm.user"
+  ],
+  "health": "optional",
+  "requires_opencode": ">=2.2.0 <2.3"
+}

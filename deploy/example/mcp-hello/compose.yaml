@@ -1,0 +1,31 @@
+# Paths resolve relative to deploy/example/compose.yaml, the first -f file.
+services:
+  manager:
+    environment:
+      OC_INTEGRATIONS_DIR: /integrations
+    volumes:
+      - /srv/opencode/mcp-hello/instance.yaml:/instance/instance.yaml:ro
+      - ./mcp-hello/integrations:/integrations:ro
+
+  litellm:
+    volumes:
+      - /srv/opencode/mcp-hello/litellm.yaml:/etc/litellm.yaml:ro
+    networks:
+      hello: {}
+    depends_on:
+      hello: {condition: service_started}
+
+  hello:
+    build:
+      context: ../../examples/mcp-hello
+    image: workspace-mcp-hello:local
+    command: ["-listen=0.0.0.0:8081"]
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    networks: [hello]
+
+networks:
+  hello:
+    internal: true

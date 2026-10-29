@@ -1,0 +1,20 @@
+{
+  "schema": 1,
+  "name": "evaluation",
+  "version": "0.1.0",
+  "runs": "builtin",
+  "scopes": [
+    "transcripts:read",
+    "llm.background"
+  ],
+  "holds_personal_data": true,
+  "portal": [
+    {
+      "path": "/admin",
+      "roles": [
+        "admin"
+      ]
+    }
+  ],
+  "health": "optional"
+}

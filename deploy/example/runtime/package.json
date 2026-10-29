@@ -1,0 +1,7 @@
+{
+  "name": "opencode-runtime",
+  "private": true,
+  "dependencies": {
+    "@opencode/cli-linux-x64": "2.2.0"
+  }
+}

@@ -1,0 +1,20 @@
+# Both roles use one upstream model for the first install.
+model_list:
+  - model_name: default
+    litellm_params:
+      model: os.environ/MODEL_ID
+      api_base: os.environ/MODEL_API_BASE
+      api_key: os.environ/MODEL_API_KEY
+  - model_name: small
+    litellm_params:
+      model: os.environ/MODEL_ID
+      api_base: os.environ/MODEL_API_BASE
+      api_key: os.environ/MODEL_API_KEY
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+litellm_settings:
+  include_cost_in_streaming_usage: true
+  request_timeout: 600
+
+# Optional external MCP: append mcp-hello/litellm.yaml and use its Compose overlay.

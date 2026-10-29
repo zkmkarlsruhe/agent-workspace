@@ -1,0 +1,19 @@
+{{/* feedback-form: message to alice, on the project page (argument: project name) and in the help (""). */}}
+{{define "feedback-form"}}
+<details class="disclosure" id="feedback">
+  <summary>{{t "Feedback to [[recipient]]"}}</summary>
+  <form class="form" method="post" action="/feedback">
+    {{with .}}<input type="hidden" name="project" value="{{.}}">{{end}}
+    <div class="field">
+      <label class="field__label" for="feedback-kind">{{t "Type"}}</label>
+      <select class="select" id="feedback-kind" name="kind">{{range feedbackKinds}}<option value="{{.}}">{{feedbackKind .}}</option>{{end}}</select>
+    </div>
+    <div class="field">
+      <label class="field__label" for="feedback-text">{{t "What do you want to tell [[recipient]]?"}}</label>
+      <span class="field__help" id="feedback-text-help">{{t "A problem, an idea, praise or a question. Only [[recipient]] reads it. You can also do this in the chat: tell the helper “Report this to [[recipient]]” and it attaches the last messages."}}</span>
+      <textarea class="textarea" id="feedback-text" name="text" rows="4" required maxlength="4000" aria-describedby="feedback-text-help"></textarea>
+    </div>
+    <button class="btn" type="submit">{{t "Send to [[recipient]]"}}</button>
+  </form>
+</details>
+{{end}}

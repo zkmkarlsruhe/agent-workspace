@@ -1,0 +1,18 @@
+{{define "title"}}{{t "Stop environment"}}{{end}}
+{{define "content"}}
+<p class="breadcrumb"><a href="/environment">{{t "My environment"}}</a></p>
+<h1 class="visually-hidden">{{t "Stop environment"}}</h1>
+<dialog class="dialog dialog--inline" open aria-labelledby="anhalten-h" aria-describedby="anhalten-text">
+  <form method="post" action="/environment/stop">
+    <input type="hidden" name="confirmed" value="yes">
+    <div class="dialog__body">
+      <h2 id="anhalten-h">{{t "Stop environment?"}}</h2>
+      <p id="anhalten-text">{{with .D.ActiveRuns}}{{if eq (len .) 1}}{{t "The helper is working on a task right now. Stopping cancels it."}}{{else}}{{t "The helper is working on %d tasks right now. Stopping cancels all of them." (len .)}}{{end}}{{else}}{{t "The environment goes to sleep immediately."}}{{end}} {{t "Projects, files and chats are kept."}}</p>
+    </div>
+    <div class="dialog__footer">
+      <a class="btn" href="/environment" data-dialog-close autofocus>{{t "Cancel"}}</a>
+      <button class="btn btn--danger" type="submit">{{t "Stop"}}</button>
+    </div>
+  </form>
+</dialog>
+{{end}}

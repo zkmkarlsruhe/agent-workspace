@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "name": "workspace-style",
+  "version": "0.1.0",
+  "runs": "none",
+  "requires": [
+    "pdf"
+  ],
+  "health": "optional"
+}

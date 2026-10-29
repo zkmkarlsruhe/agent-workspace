@@ -1,0 +1,31 @@
+{{define "title"}}{{t "Feedback – Evaluation"}}{{end}}
+{{define "content"}}
+{{template "admin-nav" "feedback"}}
+<div class="page-head">
+  <h1>{{t "Feedback"}}</h1>
+  <p class="page-head__lead">{{t "Feedback from the chat (tool feedback_senden) and from the portal, newest first. The attached chat messages are in the view of each item; every opening is logged."}}</p>
+</div>
+
+{{if .D.Truncated}}<p class="notice">{{t "List limit reached; only the newest 200 feedback entries are shown."}}</p>{{end}}
+{{with .D.Rows}}
+<div class="table-wrap page-wide">
+  <table class="table table--stack">
+    <thead><tr><th scope="col">{{t "Time"}}</th><th scope="col">{{t "Person"}}</th><th scope="col">{{t "Type"}}</th><th scope="col">{{t "Project"}}</th><th scope="col">{{t "Text"}}</th><th scope="col">{{t "Progress"}}</th></tr></thead>
+    <tbody>
+    {{range .}}
+      <tr>
+        <th scope="row"><a href="/admin/feedback/{{.ID}}">{{datetime .At}}</a></th>
+        <td data-label="{{t "Person"}}">{{or .DisplayName .Username}}<br><span class="small muted">{{.Username}}</span></td>
+        <td data-label="{{t "Type"}}">{{feedbackKind .Kind}}</td>
+        <td data-label="{{t "Project"}}">{{.Project}}</td>
+        <td data-label="{{t "Text"}}">{{.Text}}</td>
+        <td data-label="{{t "Progress"}}">{{if .Done}}<span class="badge badge--done">{{t "resolved"}}</span>{{else}}<span class="badge badge--waiting">{{t "open"}}</span>{{end}}</td>
+      </tr>
+    {{end}}
+    </tbody>
+  </table>
+</div>
+{{else}}
+<p class="empty muted">{{t "No feedback yet."}}</p>
+{{end}}
+{{end}}

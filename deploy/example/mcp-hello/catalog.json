@@ -1,0 +1,16 @@
+{
+  "items": [
+    {
+      "id": "hello",
+      "kind": "mcp-central",
+      "tier": "optional",
+      "title": "Example knowledge",
+      "title_de": "Beispielwissen",
+      "description": "Read the example greeting and its source link.",
+      "description_de": "Beispieltext und Quellenlink lesen.",
+      "category": "research",
+      "litellm": ["hello"],
+      "tools": ["hello"]
+    }
+  ]
+}

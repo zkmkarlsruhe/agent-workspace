@@ -1,0 +1,8 @@
+# Merge into the existing instance; this is not a standalone instance definition.
+integrations:
+  hello: true
+# In artifacts.opencode.jsonc, AFTER the mcp:* deny policy, insert:
+# [[if:hello]]
+#     { "action": "integration.use", "resource": "mcp:hello", "effect": "allow" },
+# [[end]]
+# Keep the same indentation as the surrounding artifact text.

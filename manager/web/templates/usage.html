@@ -1,0 +1,59 @@
+{{define "title"}}{{t "Usage"}}{{end}}
+{{define "content"}}
+<div class="page-head">
+  <div>
+    <h1>{{t "Usage"}}</h1>
+    <p class="page-head__lead">{{th "What your tasks cost in the last 30&nbsp;days and roughly how much CO<sub>2</sub> they caused."}} {{if not .D.Cap}}{{t "There is no budget and no limit."}}{{end}}</p>
+  </div>
+</div>
+
+{{with .D.Cap}}
+<section class="section" aria-labelledby="heute-h">
+  <h2 id="heute-h">{{t "Today"}}</h2>
+  <p>{{th "%s of the %s daily budget used." (eur $.D.Today) (eur .)}}</p>
+  {{if $.D.Before}}<p class="small muted">{{t "Already spent today (before the account was created again): %s" (eur $.D.Before)}}</p>{{end}}
+  <meter class="budget" min="0" max="{{.}}" low="{{mul . 0.8}}" high="{{mul . 0.95}}" optimum="0" value="{{$.D.Today}}" aria-label="{{t "Daily budget: %s of %s" (eur $.D.Today) (eur .)}}"></meter>
+  {{if ge $.D.Today .}}<div class="alert alert--warning" role="status"><p>{{t "Daily budget reached; it continues tomorrow. The helper does not answer any more today; you can still view and download projects and files."}}</p></div>
+  {{else}}<p class="small muted">{{t "Once the budget is reached, the helper stops answering until midnight. The last request of the day can exceed it slightly."}}</p>{{end}}
+</section>
+{{end}}
+
+<dl class="stats section page-wide">
+  <div class="card stat"><dt>{{t "Cost"}}</dt><dd>{{eur .D.Total.CostEUR}}</dd></div>
+  <div class="card stat"><dt>{{th "CO<sub>2</sub> range"}}</dt><dd>{{t "approx."}} {{co2 .D.Total.CO2MinG .D.Total.CO2MaxG}}<span class="stat__note">{{t "An estimate, because the data centres do not publish exact figures"}}</span>{{with car .D.Total.CO2MinG .D.Total.CO2MaxG}}<span class="stat__note">{{th "That is roughly the same as driving %s by car." .}}</span>{{end}}</dd></div>
+  <div class="card stat"><dt>{{t "Chats with usage"}}</dt><dd>{{.D.Total.Chats}}</dd></div>
+</dl>
+<p class="section"><a class="arrow-link" href="/usage/method">{{t "How is this calculated?"}}</a></p>
+
+<section class="section page-wide" aria-labelledby="proj-h">
+  <h2 id="proj-h">{{t "Per project"}}</h2>
+  {{with .D.Rows}}
+  <div class="table-wrap">
+    <table class="table table--stack">
+      <thead>
+        <tr><th scope="col">{{t "Project"}}</th><th scope="col">{{t "Share"}}</th><th scope="col" class="num">{{t "Cost"}}</th><th scope="col" class="num">CO<sub>2</sub></th><th scope="col" class="num">{{t "Chats with usage"}}</th></tr>
+      </thead>
+      <tbody>
+      {{range .}}
+        {{$a := share .CostEUR $.D.Total.CostEUR}}
+        <tr>
+          <th scope="row">{{if not .Project}}{{t "Without project"}}{{else if .Trashed}}{{.Project}} <span class="muted">{{t "(in the Trash)"}}</span>{{else}}<a href="/projects/{{.Project}}">{{.Project}}</a>{{end}}</th>
+          <td data-label="{{t "Share"}}"><div class="bar"><meter min="0" max="100" value="{{$a}}" aria-label="{{if .Project}}{{t "Share %s: %d per cent" .Project $a}}{{else}}{{t "Share without project: %d per cent" $a}}{{end}}"></meter><span class="small">{{$a}}&nbsp;%</span></div></td>
+          <td data-label="{{t "Cost"}}" class="num">{{eur .CostEUR}}</td>
+          <td data-label="CO2" class="num">{{co2 .CO2MinG .CO2MaxG}}</td>
+          <td data-label="{{t "Chats with usage"}}" class="num">{{.Chats}}</td>
+        </tr>
+      {{end}}
+      </tbody>
+      <tfoot>
+        <tr><th scope="row">{{t "Total"}}</th><td></td><td class="num" data-label="{{t "Cost"}}">{{eur $.D.Total.CostEUR}}</td><td class="num" data-label="CO2">{{co2 $.D.Total.CO2MinG $.D.Total.CO2MaxG}}</td><td class="num" data-label="{{t "Chats with usage"}}">{{$.D.Total.Chats}}</td></tr>
+      </tfoot>
+    </table>
+  </div>
+  <p class="small muted section">{{t "The bar shows the share of the total cost in the period. Only chats that used something in the 30\u00a0days are counted; the project page shows all chats."}}</p>
+  {{if $.D.NoProject}}<p class="small muted">{{t "Without project: name suggestions when creating projects, and projects that have been deleted permanently."}}</p>{{end}}
+  {{else}}
+  <p class="empty muted">{{t "There was no usage in the last 30\u00a0days."}}</p>
+  {{end}}
+</section>
+{{end}}

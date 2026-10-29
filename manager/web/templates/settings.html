@@ -1,0 +1,101 @@
+{{define "title"}}{{t "About me & how I work"}}{{end}}
+{{define "settings-radio"}}{{$name := index . 0}}{{$cur := index . 3}}{{$e := fielderror (index . 4) $name}}
+<fieldset class="fieldset{{if $e}} field--invalid{{end}}" id="{{$name}}"{{if $e}} aria-describedby="{{$name}}-error"{{end}}>
+  <legend>{{index . 1}}</legend>
+  {{range index . 2}}<div class="check">
+    <input type="radio" id="{{$name}}-{{.Value}}" name="{{$name}}" value="{{.Value}}"{{if eq (print .Value) (print $cur)}} checked{{end}}>
+    <label for="{{$name}}-{{.Value}}">{{t .Label}}</label>
+  </div>{{end}}
+  {{with $e}}<p class="field__error" id="{{$name}}-error">{{.}}</p>{{end}}
+</fieldset>{{end}}
+{{define "settings-text"}}{{$name := index . 0}}{{$e := fielderror (index . 4) $name}}
+<div class="field{{if $e}} field--invalid{{end}}">
+  <label class="field__label" for="{{$name}}">{{index . 1}} <span class="field__optional">{{t "(optional)"}}</span></label>
+  <span class="field__help" id="{{$name}}-help">{{index . 2}}</span>
+  <textarea class="textarea" id="{{$name}}" name="{{$name}}" rows="3" aria-describedby="{{$name}}-help{{if $e}} {{$name}}-error{{end}}"{{if $e}} aria-invalid="true"{{end}}>{{index . 3}}</textarea>
+  {{with $e}}<p class="field__error" id="{{$name}}-error">{{.}}</p>{{end}}
+</div>{{end}}
+{{define "content"}}
+{{$d := .D}}
+<div class="page-head">
+  <div>
+    <h1>{{t "About me & how I work"}}</h1>
+    <p class="page-head__lead">{{t "So that the helper knows who you are and how you work. It reads these settings at the start of every chat. Everything is optional and can be changed at any time."}}</p>
+  </div>
+</div>
+
+<section class="section" aria-labelledby="ich-h">
+  <div class="section__head"><h2 id="ich-h">{{t "About you"}}</h2></div>
+  <dl class="kv">
+    <dt>{{t "Name"}}</dt><dd>{{or $d.Facts.Name "–"}}</dd>
+    <dt>{{t "Email"}}</dt><dd>{{or $d.Facts.Email "–"}}</dd>
+    <dt>{{t "Department"}}</dt><dd>{{or $d.Facts.Department "–"}}</dd>
+    <dt>{{t "Role"}}</dt><dd>{{or $d.Facts.Role "–"}}</dd>
+    <dt>{{t "Phone"}}</dt><dd>{{or $d.Facts.Phone "–"}}</dd>
+    <dt>{{t "Room"}}</dt><dd>{{or $d.Facts.Room "–"}}</dd>
+  </dl>
+  <p class="small">{{if not $d.Facts.AsOf.IsZero}}{{t "From your sign-in and the [[organization]] directory, as of %s; updated once a day." (date $d.Facts.AsOf)}}{{else}}{{t "From your sign-in and the [[organization]] directory; updated once a day."}}{{end}} {{th "You change phone, room and role in <a href=\"[[directory_url]]\">Who is Who</a>; everything else through IT."}}</p>
+</section>
+
+<form class="form section" method="post" action="/settings">
+  {{template "errors" .}}
+  {{if $d.Onboarding}}<input type="hidden" name="from" value="onboarding">{{end}}
+  <section class="section" aria-labelledby="wie-h">
+    <div class="section__head"><h2 id="wie-h">{{t "How you work"}}</h2></div>
+    {{template "settings-radio" (args "address_form" (t "How should the helper address you (in German)?") $d.AddressForms $d.A.AddressForm .Errors)}}
+    {{template "settings-radio" (args "lang" (t "In which language should it answer?") $d.Languages $d.A.Language .Errors)}}
+    {{template "settings-radio" (args "tone" (t "Which tone suits you?") $d.Tones $d.A.Tone .Errors)}}
+    {{template "settings-radio" (args "length" (t "How detailed should the answers be?") $d.Lengths $d.A.Length .Errors)}}
+    {{$e := fielderror .Errors "formats"}}
+    <fieldset class="fieldset{{if $e}} field--invalid{{end}}" id="formats"{{if $e}} aria-describedby="formats-error"{{end}}>
+      <legend>{{t "In which form do you prefer results?"}}</legend>
+      {{range $d.Formats}}<div class="check">
+        <input type="checkbox" id="formats-{{.Value}}" name="formats" value="{{.Value}}"{{if $d.HasFormat .Value}} checked{{end}}>
+        <label for="formats-{{.Value}}">{{t .Label}}</label>
+      </div>{{end}}
+      {{with $e}}<p class="field__error" id="formats-error">{{.}}</p>{{end}}
+    </fieldset>
+    {{$e := fielderror .Errors "tasks"}}
+    <fieldset class="fieldset{{if $e}} field--invalid{{end}}" id="tasks">
+      <legend>{{t "What does it mostly help you with?"}} <span class="field__optional">{{t "(optional)"}}</span></legend>
+      {{range $d.Tasks}}<div class="check">
+        <input type="checkbox" id="tasks-{{.Value}}" name="tasks" value="{{.Value}}"{{if $d.HasTask .Value}} checked{{end}}>
+        <label for="tasks-{{.Value}}">{{t .Label}}</label>
+      </div>{{end}}
+      {{with $e}}<p class="field__error">{{.}}</p>{{end}}
+    </fieldset>
+    {{$e := fielderror .Errors "field"}}
+    <div class="field{{if $e}} field--invalid{{end}}">
+      <label class="field__label" for="field">{{t "Your field"}} <span class="field__optional">{{t "(optional)"}}</span></label>
+      <span class="field__help" id="field-help">{{t "For example “Press and public relations” or “Restoration of digital art”."}}</span>
+      <input class="input" type="text" id="field" name="field" maxlength="200" value="{{$d.A.Field}}" aria-describedby="field-help{{if $e}} field-error{{end}}"{{if $e}} aria-invalid="true"{{end}}>
+      {{with $e}}<p class="field__error" id="field-error">{{.}}</p>{{end}}
+    </div>
+    {{template "settings-text" (args "always" (t "What should the helper always do?") (t "One item per line, for example “Tables with a totals row”.") $d.A.Always .Errors)}}
+    {{template "settings-text" (args "never" (t "What should it never do?") (t "One item per line, for example “English technical terms without translation”.") $d.A.Never .Errors)}}
+    {{template "settings-text" (args "note" (t "Anything else?") (t "What the helper should know about your work.") $d.A.Note .Errors)}}
+    <div class="btn-row">
+      <button class="btn" type="submit" name="action" value="suggest">{{t "Create text from the answers"}}</button>
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="text-h">
+    <div class="section__head"><h2 id="text-h">{{t "How the helper reads it"}}</h2></div>
+    {{$e := fielderror .Errors "text"}}
+    <div class="field{{if $e}} field--invalid{{end}}">
+      <label class="field__label" for="text">{{t "Section “So arbeite ich” (how I work)"}}</label>
+      <span class="field__help" id="text-help">{{if $d.Suggestion}}{{if $d.LLM}}{{t "A language model has rephrased your answers as rules for the helper."}}{{else}}{{t "Composed from your answers."}}{{end}} {{end}}{{t "You can edit the text freely. At most 3000 characters."}}</span>
+      <textarea class="textarea" id="text" name="text" rows="10" maxlength="3000" aria-describedby="text-help{{if $e}} text-error{{end}}"{{if $e}} aria-invalid="true"{{end}}>{{$d.Text}}</textarea>
+      {{with $e}}<p class="field__error" id="text-error">{{.}}</p>{{end}}
+    </div>
+    {{with $d.Block}}<details class="disclosure">
+      <summary>{{t "The whole section as the helper receives it"}}</summary>
+      <pre class="small settings-block">{{.}}</pre>
+    </details>{{end}}
+    <div class="btn-row">
+      <button class="btn btn--primary" type="submit" name="action" value="save">{{t "Save"}}</button>
+      {{if $d.Onboarding}}<a href="/onboarding?step=4">{{t "Skip"}}</a>{{end}}
+    </div>
+  </section>
+</form>
+{{end}}

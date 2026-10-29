@@ -1,0 +1,123 @@
+/* Agent Workspace: branding on top of the OpenCode web UI, served by the manager.
+   Relied on (pinned by TestBrandContract): #root from index.html, the
+   data-theme/data-color-scheme attributes, the v2 blue scale and focus token,
+   and the data-slot/data-value hooks named below. If one disappears, the
+   strip still shows and the app keeps its own look.
+   Everything after the strip applies only to the default theme "oc-2", so a
+   theme the person picks in the settings stays as it is. Hiding is cosmetic:
+   the managed policies decide what is usable. */
+
+:root {
+  --[[brand_id]]-bar: 28px;
+  --[[brand_id]]-ink: #1c1a17;
+  --[[brand_id]]-accent: #b5320e;
+  --[[brand_id]]-hl: #ff9b77;
+  --[[brand_id]]-muted: #b8afa2;
+}
+
+/* A reserved strip above the app, so the link never covers an OpenCode control. */
+#root {
+  margin-top: var(--[[brand_id]]-bar);
+  height: calc(100dvh - var(--[[brand_id]]-bar));
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0 0 auto 0;
+  height: var(--[[brand_id]]-bar);
+  background: var(--[[brand_id]]-ink);
+  box-shadow: inset 0 -1px color-mix(in srgb, var(--[[brand_id]]-ink) 85%, #ffffff);
+}
+
+#[[brand_id]]-portal {
+  position: fixed;
+  z-index: 2147483000;
+  top: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: var(--[[brand_id]]-bar);
+  padding: 0 12px;
+  font: 650 13px/1 system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", "Helvetica Neue", Arial, sans-serif;
+  letter-spacing: -0.01em;
+  color: #ffffff;
+  text-decoration: none;
+}
+
+/* The project mark (portal favicon, dark colours) as a data: image: OpenCode's
+   CSP has img-src data:, and the manager serves no other file on this host. */
+#[[brand_id]]-portal::before {
+  content: "";
+  flex: none;
+  width: 16px;
+  height: 16px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath fill='%23f1ebe1' d='M15 4a12 12 0 0 0 0 24z'/%3E%3Cpath fill='%23ff7b52' d='M18 8a10 10 0 0 1 0 20z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+/* Short prototype notice right of the portal link; cut with an ellipsis on narrow screens. */
+#[[brand_id]]-notice {
+  position: fixed;
+  z-index: 2147483000;
+  top: 0;
+  right: 0;
+  left: 140px;
+  height: var(--[[brand_id]]-bar);
+  padding: 0 12px 0 0;
+  overflow: hidden;
+  font: 400 12px/28px system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", "Helvetica Neue", Arial, sans-serif;
+  color: var(--[[brand_id]]-muted);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-decoration: none;
+}
+
+#[[brand_id]]-notice:hover,
+#[[brand_id]]-portal:hover {
+  color: #ffffff;
+  text-decoration: underline;
+  text-decoration-color: var(--[[brand_id]]-hl);
+  text-underline-offset: 3px;
+}
+
+#[[brand_id]]-notice:focus-visible,
+#[[brand_id]]-portal:focus-visible {
+  outline: 2px solid var(--[[brand_id]]-hl);
+  outline-offset: -4px;
+}
+
+/* Project accent (docs/adr/README.md): OpenCode keeps its own look, font and
+   radii; only its one accent scale, blue, is derived from --[[brand_id]]-accent.
+   Both schemes use the same scale (OpenCode picks lighter steps in dark mode).
+   html[...] outranks the :root rule of OpenCode's runtime <style id="oc-theme">. */
+html[data-theme="oc-2"] {
+  --v2-blue-100: color-mix(in srgb, var(--[[brand_id]]-accent) 6%, #ffffff);
+  --v2-blue-200: color-mix(in srgb, var(--[[brand_id]]-accent) 12%, #ffffff);
+  --v2-blue-300: color-mix(in srgb, var(--[[brand_id]]-accent) 28%, #ffffff);
+  --v2-blue-400: color-mix(in srgb, var(--[[brand_id]]-accent) 50%, #ffffff);
+  --v2-blue-500: color-mix(in srgb, var(--[[brand_id]]-accent) 75%, #ffffff);
+  --v2-blue-600: var(--[[brand_id]]-accent);
+  --v2-blue-700: color-mix(in srgb, var(--[[brand_id]]-accent) 88%, #000000);
+  --v2-blue-800: color-mix(in srgb, var(--[[brand_id]]-accent) 78%, #000000);
+  --v2-blue-900: color-mix(in srgb, var(--[[brand_id]]-accent) 66%, #000000);
+  --v2-blue-1000: color-mix(in srgb, var(--[[brand_id]]-accent) 54%, #000000);
+  --v2-blue-1100: color-mix(in srgb, var(--[[brand_id]]-accent) 42%, #000000);
+  --v2-blue-1200: color-mix(in srgb, var(--[[brand_id]]-accent) 24%, #000000);
+}
+
+/* Visible keyboard focus on everything in the tab order; text fields keep
+   OpenCode's own ring (--v2-border-border-focus, now indigo). tabindex=-1
+   panels only receive focus from script. */
+html[data-theme="oc-2"] body :focus-visible:not(input, textarea, [contenteditable], [tabindex="-1"]) {
+  outline: 2px solid var(--v2-border-border-focus) !important;
+  outline-offset: -2px !important;
+}
+
+/* Settings a person at the Workspace does not need: providers (only Workspace KI is
+   allowed), worktrees (git stays invisible, D9), servers and extensions. */
+[data-slot="tabs-v2-trigger-wrapper"]:is([data-value="providers"], [data-value="workspaces"], [data-value="servers"], [data-value="extensions"]),
+[data-component="dialog-v2"][data-variant="settings"] [data-slot="dialog-header"] [data-icon="plus"],
+[data-slot="model-selector-actions"] [data-icon="plus"] {
+  display: none !important;
+}

@@ -1,0 +1,26 @@
+{{define "assistant-card"}}
+<section class="card assistant-card" id="assistant-{{.ID}}" aria-labelledby="title-{{.ID}}"{{if and .Focused .Missing}} tabindex="-1" autofocus{{end}}>
+  <svg class="assistant-card__accent" aria-hidden="true" focusable="false"><rect width="100%" height="100%" fill="{{or .Color "#596579"}}"/></svg>
+  <div class="assistant-card__head">
+    <svg class="assistant-card__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      {{if eq .Icon "search"}}<circle cx="10" cy="10" r="6"/><path d="m15 15 6 6"/>
+      {{else if eq .Icon "book"}}<path d="M12 5v16M12 5C8 2 4 3 2 4v15c3-1 7-1 10 2 3-3 7-3 10-2V4c-2-1-6-2-10 1Z"/>
+      {{else if eq .Icon "tools"}}<path d="M14 6a6 6 0 0 0-7 8l-4 4a2 2 0 0 0 3 3l4-4a6 6 0 0 0 8-7l-4 3-3-3Z"/>
+      {{else}}<path d="M20 15a3 3 0 0 1-3 3H9l-5 3V6a3 3 0 0 1 3-3h10a3 3 0 0 1 3 3Z"/><path d="M8 8h8M8 12h5"/>{{end}}
+    </svg>
+    {{if .OnStart}}<h3 id="title-{{.ID}}">{{.Title}}</h3>{{else}}<h2 id="title-{{.ID}}">{{.Title}}</h2>{{end}}
+  </div>
+  <p class="assistant-card__description">{{.Description}}</p>
+  <form method="post" action="/new" class="form" data-once>
+    <input type="hidden" name="assistant" value="{{.ID}}">
+    <input type="hidden" name="hash" value="{{.Hash}}">
+    <div class="field">
+      <label class="field__label" for="question-{{.ID}}">{{.EntryQuestion}}</label>
+      <textarea class="textarea" id="question-{{.ID}}" name="question" rows="4" required maxlength="16000" data-submit-shortcut aria-describedby="question-help-{{.ID}}"{{if and .Focused (not .Missing)}} autofocus{{end}}{{if .Missing}} disabled{{end}}></textarea>
+      <p class="field__help" id="question-help-{{.ID}}">{{t "New line: Enter. Start: Ctrl+Enter or Cmd+Enter."}}</p>
+    </div>
+    {{if .Missing}}<p class="alert" role="status">{{.Missing}}</p>{{else}}
+    <button class="btn btn--primary" type="submit">{{t "Start"}}</button>{{end}}
+  </form>
+</section>
+{{end}}
