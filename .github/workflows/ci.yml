@@ -55,7 +55,7 @@ jobs:
         run: |
           python3 -m venv /tmp/workspace-ci-venv
           /tmp/workspace-ci-venv/bin/pip install PyYAML openpyxl matplotlib pandas
-          /tmp/workspace-ci-venv/bin/python -I -B deploy/etc-opencode/tests/lint.py deploy/etc-opencode deploy/catalog
+          /tmp/workspace-ci-venv/bin/python -I -B deploy/etc-opencode/tests/lint.py deploy/etc-opencode deploy/catalog instance/example/rendered/opencode.jsonc
           /tmp/workspace-ci-venv/bin/python -I -B deploy/catalog/tests/test_lint.py
           /tmp/workspace-ci-venv/bin/python -I -B deploy/catalog/tests/event-planning/test_schedule.py
           /tmp/workspace-ci-venv/bin/python -I -B -m unittest discover -s deploy/etc-opencode/tests -p 'test_skill_*.py' -v

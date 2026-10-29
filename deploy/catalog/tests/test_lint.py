@@ -5,6 +5,7 @@
 Usage: python3 -I -B deploy/catalog/tests/test_lint.py
 """
 import json
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -44,8 +45,14 @@ BAD = {
 
 
 def lint(root: Path) -> subprocess.CompletedProcess:
-    return subprocess.run([sys.executable, "-I", "-B", str(LINT), str(DEPLOY / "etc-opencode"), str(root)],
-                          capture_output=True, text=True)
+    with tempfile.TemporaryDirectory() as d:
+        base = Path(d) / "etc-opencode"
+        shutil.copytree(DEPLOY / "etc-opencode", base)
+        # Keep fixture policies independent of the deployment's enabled integrations.
+        policy = {"action": "integration.use", "resource": "mcp:hello", "effect": "allow"}
+        (base / "opencode.jsonc").write_text("// release: fixture\n" + json.dumps({"policies": [policy]}))
+        return subprocess.run([sys.executable, "-I", "-B", str(LINT), str(base), str(root)],
+                              capture_output=True, text=True)
 
 
 def write(root: Path, skills: dict, items: list) -> None:
@@ -57,21 +64,21 @@ def write(root: Path, skills: dict, items: list) -> None:
 
 ITEM = {"id": "md-to-pdf", "title": "PDF", "title_de": "PDF", "description": "x", "description_de": "x", "tier": "optional",
         "category": "texts", "server": "workspace", "tools": ["md_to_pdf"]}
+CENTRAL = dict(ITEM, id="hello", kind="mcp-central", litellm=["hello"], tools=["hello"])
+del CENTRAL["server"]
 
 with tempfile.TemporaryDirectory() as d:
     root = Path(d)
-    write(root, {"good": GOOD}, [ITEM])
+    write(root, {"good": GOOD}, [ITEM, CENTRAL])
     r = lint(root)
     assert r.returncode == 0, r.stdout
 
 with tempfile.TemporaryDirectory() as d:
     root = Path(d)
-    central = dict(ITEM, id="workspace-knowledge", kind="mcp-central", litellm=["workspace_kb_wiki"], tools=["workspace_wiki"])
-    del central["server"]
-    toolbox = {k: v for k, v in central.items() if k not in ("litellm", "tools")}
+    toolbox = {k: v for k, v in CENTRAL.items() if k not in ("litellm", "tools")}
     toolbox.update(kind="toolbox", programs=["ffmpeg"], image="registry.example.org/operations/opencode-tool-medien:1@sha256:" + "0" * 64)
-    write(root, {"good": GOOD, **BAD}, [ITEM, dict(ITEM, id="good"), central,
-                                        dict(central, id="no-policy"), dict(central, id="central-std", tier="standard"),
+    write(root, {"good": GOOD, **BAD}, [ITEM, dict(ITEM, id="good"), CENTRAL,
+                                        dict(CENTRAL, id="no-policy"), dict(CENTRAL, id="central-std", tier="standard"),
                                         dict(toolbox, id="media"), dict(toolbox, id="no-digest", image="registry.example.org/x:latest"),
                                         dict(toolbox, id="foreign", kind="plugin"), dict(ITEM, id="no-de", title_de=""),
                                         dict(ITEM, id="old-tier", tier="katalog"), dict(ITEM, id="my-item"),
@@ -89,7 +96,7 @@ with tempfile.TemporaryDirectory() as d:
                  "mcp.json old-tier: tier or category invalid", "mcp.json my-item: id invalid",
                  "mcp.json old-key: unknown keys"]:
         assert want in out, (want, out)
-    for ok in ["mcp.json workspace-knowledge", "mcp.json media"]:
+    for ok in ["mcp.json hello", "mcp.json media"]:
         assert ok not in out, (ok, out)
 
 print("test_lint ok")

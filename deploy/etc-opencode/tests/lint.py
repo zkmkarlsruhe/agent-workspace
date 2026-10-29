@@ -2,7 +2,7 @@
 
 """Lint for deploy/etc-opencode (docs/adr/README.md §4.2). Needs PyYAML. Exit code 1 on any finding.
 
-Usage: python3 lint.py deploy/etc-opencode [deploy/catalog]
+Usage: python3 lint.py deploy/etc-opencode [deploy/catalog [path/to/opencode.jsonc]]
 """
 import json
 import re
@@ -51,8 +51,7 @@ def strip_jsonc(text: str) -> str:
     return "".join(out)
 
 
-# Catalog policies belong to the comprehensive example; minimal disables integrations.
-cfg_text = (Path(__file__).resolve().parents[3] / "instance/example/rendered/opencode.jsonc").read_text()
+cfg_text = (Path(sys.argv[3]) if len(sys.argv) > 3 else ROOT / "opencode.jsonc").read_text()
 if not cfg_text.startswith("// release: "):
     errors.append("opencode.jsonc: first line must be '// release: <tag> <date>'")
 cfg = json.loads(strip_jsonc(cfg_text))
