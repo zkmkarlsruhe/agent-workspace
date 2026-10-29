@@ -23,6 +23,7 @@ capabilities:
   project_default: none
   legacy_default: global
 integrations:
+  knowledge: false
   evaluation: false
   feedback: false
   images: false
@@ -198,7 +199,12 @@ artifacts:
         "/etc/opencode/skills"
       ],
       "mcp": {
-        "servers": {}
+        "servers": {
+    [[if-global-tools]]
+          "[[mcp_server]]": { "type": "remote", "url": "http://llm-gw:4000/mcp/[[mcp_server]]", "oauth": false, "codemode": false,
+            "timeout": { "startup": 10000, "catalog": 15000, "execution": 240000 } }
+    [[end]]
+        }
       },
       "websearch": false,
       "snapshots": true,
@@ -253,6 +259,9 @@ artifacts:
           "resource": "mcp:*",
           "effect": "deny"
         },
+    [[if-tools]]
+        { "action": "integration.use", "resource": "mcp:[[mcp_server]]", "effect": "allow" },
+    [[end]]
         {
           "action": "integration.use",
           "resource": "skill:*",

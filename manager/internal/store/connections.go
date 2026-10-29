@@ -50,7 +50,7 @@ func (s *Store) DeleteConnection(ctx context.Context, uid, service string) error
 
 // ConnectionUsed records a use; expired marks a 401 from the service.
 func (s *Store) ConnectionUsed(ctx context.Context, uid, service string, at time.Time, expired bool) error {
-	_, err := s.db.ExecContext(ctx, `UPDATE connections SET last_used = ?, expired = ? WHERE uid = ? AND service = ?`,
+	_, err := s.db.ExecContext(ctx, `UPDATE connections SET last_used = ?, expired = CASE WHEN ? THEN 1 ELSE expired END WHERE uid = ? AND service = ?`,
 		at.UnixMilli(), expired, uid, service)
 	return err
 }

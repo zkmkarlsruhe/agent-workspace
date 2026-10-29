@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "name": "freecad",
+  "version": "0.1.0",
+  "runs": "builtin",
+  "tools": [
+    "freecad_open",
+    "freecad_state",
+    "freecad_document",
+    "freecad_execute",
+    "freecad_output",
+    "freecad_save",
+    "freecad_export",
+    "freecad_view",
+    "freecad_close"
+  ],
+  "scopes": [
+    "workspace:read",
+    "workspace:write"
+  ],
+  "holds_personal_data": false,
+  "health": "optional",
+  "requires_opencode": ">=2.2.0 <2.3"
+}

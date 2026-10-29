@@ -94,13 +94,14 @@ func (n *Nextcloud) davURL(login, p string) string {
 
 type ncEntry struct {
 	Name     string `json:"name"`
+	FileID   string `json:"fileId,omitempty"`
 	Folder   bool   `json:"is_folder"`
 	Bytes    int64  `json:"bytes"`
 	Modified string `json:"modified,omitempty"`
 	Typ      string `json:"type,omitempty"`
 }
 
-const propfindBody = `<?xml version="1.0"?><d:propfind xmlns:d="DAV:"><d:prop><d:resourcetype/><d:getcontentlength/><d:getlastmodified/><d:getcontenttype/></d:prop></d:propfind>`
+const propfindBody = `<?xml version="1.0"?><d:propfind xmlns:d="DAV:" xmlns:oc="http://owncloud.org/ns"><d:prop><oc:fileid/><d:resourcetype/><d:getcontentlength/><d:getlastmodified/><d:getcontenttype/></d:prop></d:propfind>`
 
 type multistatus struct {
 	Responses []struct {
@@ -109,6 +110,7 @@ type multistatus struct {
 			Status string `xml:"status"`
 			Prop   struct {
 				Collection *struct{} `xml:"resourcetype>collection"`
+				FileID     string    `xml:"http://owncloud.org/ns fileid"`
 				Length     string    `xml:"getcontentlength"`
 				Modified   string    `xml:"getlastmodified"`
 				Type       string    `xml:"getcontenttype"`
@@ -148,6 +150,9 @@ func parseListing(body io.Reader, rootPath, dir string) ([]ncEntry, error) {
 		for _, ps := range r.Props {
 			if !strings.Contains(ps.Status, " 200 ") {
 				continue
+			}
+			if id, err := strconv.ParseUint(ps.Prop.FileID, 10, 64); err == nil && id > 0 {
+				e.FileID = strconv.FormatUint(id, 10)
 			}
 			e.Folder = ps.Prop.Collection != nil
 			e.Bytes, _ = strconv.ParseInt(ps.Prop.Length, 10, 64)

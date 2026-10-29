@@ -1,0 +1,211 @@
+{
+  "deploy/example/compose.oauth2-proxy.example.yaml": [
+    "172.30.0.5"
+  ],
+  "deploy/example/compose.yaml": [
+    "172.30.0.0",
+    "172.30.0.2",
+    "172.30.0.3",
+    "172.30.0.4"
+  ],
+  "deploy/example/squid.conf": [
+    "10.0.0.0",
+    "10.90.0.0",
+    "172.16.0.0",
+    "192.168.0.0"
+  ],
+  "docs/IDENTITY.md": [
+    "172.30.0.2"
+  ],
+  "docs/INSTALL.md": [
+    "10.90.0.0",
+    "172.30.0.0",
+    "172.30.0.2",
+    "192.168.0.0"
+  ],
+  "manager/cmd/manager/admin_auth_test.go": [
+    "10.90.1.10"
+  ],
+  "manager/cmd/manager/consent_e2e_test.go": [
+    "10.0.0.2"
+  ],
+  "manager/cmd/manager/portal_e2e_test.go": [
+    "10.0.0.0",
+    "10.0.0.2"
+  ],
+  "manager/cmd/manager/profiles_test.go": [
+    "10.90.1.10"
+  ],
+  "manager/cmd/manager/tools_e2e_test.go": [
+    "10.90.1.10"
+  ],
+  "manager/cmd/manager/usage_test.go": [
+    "10.90.1.10",
+    "10.90.2.10",
+    "10.90.9.10"
+  ],
+  "manager/internal/config/config_test.go": [
+    "10.0.0.0"
+  ],
+  "manager/internal/config/identity_recipe_test.go": [
+    "172.30.0.2"
+  ],
+  "manager/internal/dockerproxy/freecad_test.go": [
+    "10.90.4.12",
+    "10.90.5.12"
+  ],
+  "manager/internal/dockerproxy/live_test.go": [
+    "10.199.249.0",
+    "10.199.249.10",
+    "10.90.4.11"
+  ],
+  "manager/internal/dockerproxy/office_test.go": [
+    "10.90.4.10",
+    "10.90.4.11",
+    "10.90.5.11"
+  ],
+  "manager/internal/dockerproxy/proxy_test.go": [
+    "10.199.4.0",
+    "10.90.4.0",
+    "10.90.4.1",
+    "10.90.5.0",
+    "10.91.4.0"
+  ],
+  "manager/internal/gateway/central/central_test.go": [
+    "10.90.1.10",
+    "10.90.2.10"
+  ],
+  "manager/internal/gateway/central/profile_test.go": [
+    "10.90.1.10"
+  ],
+  "manager/internal/gateway/llm/accounting_test.go": [
+    "10.90.1.10"
+  ],
+  "manager/internal/gateway/llm/budget_test.go": [
+    "10.90.1.10"
+  ],
+  "manager/internal/gateway/llm/gate_test.go": [
+    "10.90.1.10",
+    "10.90.1.2",
+    "10.90.2.10"
+  ],
+  "manager/internal/gateway/llm/llm_test.go": [
+    "10.90.0.10",
+    "10.90.1.10",
+    "10.90.1.2",
+    "10.90.12.10",
+    "10.90.12.3",
+    "10.90.7.10",
+    "10.91.1.10",
+    "172.20.0.5"
+  ],
+  "manager/internal/gateway/llm/profile_test.go": [
+    "10.90.1.10"
+  ],
+  "manager/internal/gateway/llm/provider_test.go": [
+    "10.90.1.10"
+  ],
+  "manager/internal/gateway/llm/robustness_test.go": [
+    "10.90.1.10"
+  ],
+  "manager/internal/gateway/llm/security_test.go": {
+    "10.90.1.10": "Synthetic runtime address used by gateway request-policy and billing security tests."
+  },
+  "manager/internal/gateway/mcp/feedback_test.go": [
+    "10.90.1.10"
+  ],
+  "manager/internal/gateway/mcp/file_tools_test.go": [
+    "10.90.1.10"
+  ],
+  "manager/internal/gateway/mcp/freecad_test.go": [
+    "10.90.1.10",
+    "10.90.1.12"
+  ],
+  "manager/internal/gateway/mcp/handwriting_test.go": [
+    "10.90.1.10"
+  ],
+  "manager/internal/gateway/mcp/harness_local_test.go": [
+    "10.90.1.3"
+  ],
+  "manager/internal/gateway/mcp/hidden_test.go": [
+    "10.90.1.10"
+  ],
+  "manager/internal/gateway/mcp/i18n_test.go": [
+    "10.0.0.1",
+    "10.90.1.10"
+  ],
+  "manager/internal/gateway/mcp/image_gen_test.go": [
+    "10.90.1.10"
+  ],
+  "manager/internal/gateway/mcp/image_test.go": [
+    "10.90.1.10"
+  ],
+  "manager/internal/gateway/mcp/integrations_test.go": [
+    "10.90.1.10"
+  ],
+  "manager/internal/gateway/mcp/knowledge_test.go": [
+    "10.90.1.10"
+  ],
+  "manager/internal/gateway/mcp/mcp_test.go": [
+    "10.0.0.1",
+    "10.1.2.3",
+    "10.90.1.10",
+    "10.90.1.2",
+    "10.90.2.10",
+    "172.16.0.1",
+    "192.168.1.1"
+  ],
+  "manager/internal/gateway/mcp/nextcloud_sync_test.go": [
+    "10.90.1.10"
+  ],
+  "manager/internal/gateway/mcp/nextcloud_test.go": [
+    "10.90.1.10"
+  ],
+  "manager/internal/gateway/mcp/office_test.go": [
+    "10.90.1.10",
+    "10.90.1.11"
+  ],
+  "manager/internal/gateway/mcp/pdf_test.go": [
+    "10.90.1.10"
+  ],
+  "manager/internal/gateway/mcp/profile_test.go": [
+    "10.90.1.10"
+  ],
+  "manager/internal/gateway/mcp/toolbox_test.go": [
+    "10.90.1.10"
+  ],
+  "manager/internal/identity/identity_test.go": [
+    "10.90.1.10",
+    "172.20.0.0",
+    "172.20.0.5"
+  ],
+  "manager/internal/lifecycle/freecad_live_test.go": [
+    "10.199.201.0"
+  ],
+  "manager/internal/lifecycle/lifecycle_test.go": [
+    "10.90.1.0",
+    "10.90.1.10",
+    "10.90.1.2",
+    "10.90.1.3"
+  ],
+  "manager/internal/logx/logx_test.go": [
+    "10.0.0.1",
+    "10.0.0.2"
+  ],
+  "manager/internal/router/freecad_test.go": [
+    "10.90.1.12"
+  ],
+  "manager/internal/router/router_test.go": [
+    "10.90.1.10"
+  ],
+  "manager/internal/runtime/docker_test.go": [
+    "10.199.7.0",
+    "10.199.7.10",
+    "10.90.1.10",
+    "10.90.4.0"
+  ],
+  "services/freecad/test_control.py": {
+    "10.90.1.10": "Synthetic runtime peer: control API must reject it even with a valid token.",
+    "10.90.1.3": "Synthetic manager peer: control API requires both this source and a valid token."
+  }
+}

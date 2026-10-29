@@ -87,7 +87,8 @@
     "/etc/opencode/skills"
   ],
   "mcp": {
-    "servers": {}
+    "servers": {
+    }
   },
   "websearch": false,
   "snapshots": true,

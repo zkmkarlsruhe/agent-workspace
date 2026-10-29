@@ -130,7 +130,7 @@ func TestResolve(t *testing.T) {
 		{"same local tool distinct namespace", func(m *[]Manifest, o *Options) {
 			(*m)[0].Tools = []string{"fetch"}
 			(*m)[1].Tools = []string{"fetch"}
-		}, []string{"alpha", "beta"}, ""},
+		}, nil, "tool collision"},
 		{"duplicate tool", func(m *[]Manifest, o *Options) {
 			(*m)[0].Tools = []string{"fetch", "fetch"}
 		}, nil, "tools"},

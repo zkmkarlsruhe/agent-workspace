@@ -3,7 +3,6 @@
   "name": "hello",
   "version": "0.1.0",
   "runs": "service",
-  "enabled_by_default": false,
   "mcp": "/mcp",
   "tools": [
     "hello"

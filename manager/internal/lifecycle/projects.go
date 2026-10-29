@@ -3,6 +3,7 @@
 package lifecycle
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/base64"
@@ -116,6 +117,9 @@ func (s *Service) MoveToTrash(ctx context.Context, uid, project string) error {
 	l := s.lock(uid)
 	l.Lock()
 	defer l.Unlock()
+	if err := s.closeProjectCAD(ctx, uid, p.ID); err != nil {
+		return err
+	}
 	c, ok := s.Client(uid)
 	if !ok {
 		return ErrNotRunning
@@ -241,6 +245,12 @@ func (s *Service) RenameProject(ctx context.Context, uid, project, newName strin
 		return s.st.RenameProject(ctx, p.ID, newName)
 	}
 	if err := s.ready(ctx, uid); err != nil {
+		return err
+	}
+	l := s.lock(uid)
+	l.Lock()
+	defer l.Unlock()
+	if err := s.closeProjectCAD(ctx, uid, p.ID); err != nil {
 		return err
 	}
 	c, ok := s.Client(uid)
@@ -439,11 +449,31 @@ func (s *Service) CreateSession(ctx context.Context, uid, project, prompt string
 		if len(def.MCPTools) > 0 {
 			sourceServers = append(sourceServers, instance.Current().MCPServer)
 		}
-		// This manager-owned config belongs to the assistant project, never the user config.
-		if err := s.Shell(ctx, uid, `f=$(mktemp "$1/.profile-config.XXXXXX") || exit 1
-trap 'rm -f -- "$f"' EXIT
-printf '%s\n' "$2" > "$f" && mv -f -- "$f" "$1/opencode.json"`, nil, s.projectDir(project), string(assistants.ProjectConfig(p.ID, sources, def.MCPTools...))); err != nil {
+		body, err := def.RuntimeConfig(p.ID, sources)
+		if err != nil {
 			return "", err
+		}
+		var changed bytes.Buffer
+		if err := s.Shell(ctx, uid, `printf '%s\n' "$2" | cmp -s - "$1/opencode.json" || printf changed`, &changed, s.projectDir(project), string(body)); err != nil {
+			return "", err
+		}
+		if changed.Len() > 0 {
+			active, err := c.Active(ctx)
+			if err != nil {
+				return "", err
+			}
+			if len(active) > 0 {
+				return "", ErrBusy
+			}
+			if err := c.EvictLocation(ctx, s.projectDir(project)); err != nil {
+				return "", err
+			}
+			// This manager-owned config belongs to the assistant project, never the user config.
+			if err := s.Shell(ctx, uid, `f=$(mktemp "$1/.profile-config.XXXXXX") || exit 1
+trap 'rm -f -- "$f"' EXIT
+			printf '%s\n' "$2" > "$f" && mv -f -- "$f" "$1/opencode.json"`, nil, s.projectDir(project), string(body)); err != nil {
+				return "", err
+			}
 		}
 	}
 	s.Touch(uid)

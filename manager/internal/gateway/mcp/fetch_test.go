@@ -37,3 +37,16 @@ func TestCacheable(t *testing.T) {
 		})
 	}
 }
+
+func TestFetchDenySplitUpstreamHosts(t *testing.T) {
+	s := New(Server{DenyHosts: []string{"models.test", "broker.test", "legacy.test"}})
+	for _, host := range []string{"models.test", "broker.test:8443", "legacy.test", "child.models.test", "BROKER.TEST."} {
+		// The syntactic gate rejects these before DNS lookup or dialing.
+		if _, err := s.checkURL("https://" + host + "/v1"); err == nil {
+			t.Errorf("upstream host accepted: %s", host)
+		}
+	}
+	if _, err := s.checkURL("https://unrelated.test/"); err != nil {
+		t.Fatal(err)
+	}
+}

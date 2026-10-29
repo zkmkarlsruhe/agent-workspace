@@ -41,6 +41,7 @@
       <ul>
         <li><a href="/"{{if eq .Nav "projects"}} aria-current="page"{{end}}>{{t "My projects"}}</a></li>
         {{if .TaskAssistants}}<li><a href="/assistants"{{if eq .Nav "assistants"}} aria-current="page"{{end}}>{{t "Assistants"}}</a></li>{{end}}
+        {{if .Knowledge}}<li><a href="/knowledge"{{if eq .Nav "knowledge"}} aria-current="page"{{end}}>{{t "Knowledge"}}</a></li><li><a href="/teams"{{if eq .Nav "teams"}} aria-current="page"{{end}}>{{t "Teams"}}{{if .TeamInvitations}} <span class="badge badge--waiting" aria-label="{{t "Pending invitations"}}">{{len .TeamInvitations}}</span>{{end}}</a></li>{{end}}
         {{if .Tools}}<li><a href="/tools"{{if eq .Nav "tools"}} aria-current="page"{{end}}>{{t "Capabilities"}}</a></li>{{end}}
         <li><a href="/help"{{if eq .Nav "help"}} aria-current="page"{{end}}>{{t "Help"}}</a></li>
       </ul>
@@ -105,9 +106,26 @@
 {{define "admin-nav"}}<nav class="admin-nav" aria-label="{{t "Evaluation"}}"><ul>
   <li><a href="/admin"{{if eq . "overview"}} aria-current="page"{{end}}>{{t "Overview"}}</a></li>
   <li><a href="/admin/chats"{{if eq . "chats"}} aria-current="page"{{end}}>{{t "Chats"}}</a></li>
+  <li><a href="/admin/assistants"{{if eq . "assistants"}} aria-current="page"{{end}}>{{t "Assistants"}}</a></li>
+  <li><a href="/admin/assistant-gaps"{{if eq . "gaps"}} aria-current="page"{{end}}>{{t "Knowledge gaps"}}</a></li>
   <li><a href="/admin/feedback"{{if eq . "feedback"}} aria-current="page"{{end}}>{{t "Feedback"}}</a></li>
 </ul></nav>{{end}}
 
 {{define "flags"}}{{range .}}<span class="badge badge--{{if or (eq . "private-data") (eq . "misuse") (eq . "unsuccessful")}}error{{else if eq . "unevaluated"}}idle{{else}}waiting{{end}}">{{flaglabel .}}</span> {{end}}{{end}}
 
 {{define "envbadge"}}<span class="badge badge--{{envbadge .}}">{{envlabel .}}</span>{{end}}
+
+{{define "team-invitations"}}
+{{if .TeamInvitations}}<section class="section" aria-labelledby="team-invitations-title">
+<h2 id="team-invitations-title">{{t "Pending invitations"}}</h2>
+<p>{{t "Accept an invitation to access the team's knowledge. Until then, the invitation grants no access."}}</p>
+{{range .TeamInvitations}}<article class="card section">
+<h3>{{.Name}}</h3><p>{{.Description}}</p>
+<p>{{if eq .Role "admin"}}{{t "Team Admin"}}{{else}}{{t "Member"}}{{end}}</p>
+<form method="post" action="/teams/{{.ID}}/invitation">
+<input type="hidden" name="account" value="{{$.InvitationAccount}}"><input type="hidden" name="revision" value="{{.Revision}}">
+<button class="btn btn--primary" name="decision" value="accept" type="submit">{{t "Accept invitation"}}</button>
+<button class="btn" name="decision" value="decline" type="submit">{{t "Decline invitation"}}</button>
+</form></article>{{end}}
+</section>{{end}}
+{{end}}

@@ -61,6 +61,11 @@ func (s *Service) trashDir(id string) string     { return path.Join(s.ws, Layout
 // person's operation lease (DeleteAccount drains it before the slot is freed)
 // and checks that the container still carries this person and generation.
 func (s *Service) sh(ctx context.Context, uid, script string, stdin io.Reader, stdout io.Writer, args ...string) error {
+	ctx, done, ok := s.beginWork(ctx)
+	if !ok {
+		return ErrNotRunning
+	}
+	defer done()
 	op := s.opLock(uid)
 	op.RLock()
 	defer op.RUnlock()
@@ -71,7 +76,7 @@ func (s *Service) sh(ctx context.Context, uid, script string, stdin io.Reader, s
 	name := config.SlotContainer(r.slot)
 	c, err := s.rt.Inspect(ctx, name)
 	if err == nil && (c.Labels["oc.uid"] != uid || c.Labels["oc.generation"] != strconv.FormatInt(r.gen, 10)) {
-		s.workers.Go(func() { s.Suspect(uid) })
+		s.suspectAsync(uid)
 		return ErrNotRunning
 	}
 	var stderr bytes.Buffer
@@ -83,7 +88,7 @@ func (s *Service) sh(ctx context.Context, uid, script string, stdin io.Reader, s
 	switch {
 	case err != nil && (errors.Is(err, runtime.ErrNotFound) || strings.Contains(err.Error(), "No such container")):
 		// removed from outside: forget it now, the next EnsureRunning starts a fresh one
-		s.workers.Go(func() { s.Suspect(uid) }) // may be called with the person's lock held
+		s.suspectAsync(uid) // may be called with the person's lock held
 		return ErrNotRunning
 	case err != nil:
 		return err

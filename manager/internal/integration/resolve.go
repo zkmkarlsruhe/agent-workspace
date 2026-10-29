@@ -88,6 +88,9 @@ func Resolve(manifests []Manifest, opts Options) ([]Manifest, error) {
 		}
 		for _, tool := range m.Tools {
 			full, _ := ToolName(name, tool) // Validate checked the reference
+			if m.BuiltinTools() {
+				full = LegacyTool(name, tool)
+			}
 			if err := claim(tools, "tool", full, name); err != nil {
 				return nil, err
 			}

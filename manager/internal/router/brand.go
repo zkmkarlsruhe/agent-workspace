@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/zkmkarlsruhe/agent-workspace/manager/internal/consent"
+	"github.com/zkmkarlsruhe/agent-workspace/manager/internal/gateway/mcp"
 	"github.com/zkmkarlsruhe/agent-workspace/manager/internal/instance"
 )
 
@@ -31,6 +32,9 @@ import (
 //go:embed brand.css
 var brandCSS []byte
 
+//go:embed brand-tools.js
+var brandToolsScript string
+
 const (
 	swPath       = "/sw.js"
 	maxHTMLBytes = 2 << 20
@@ -46,13 +50,15 @@ self.addEventListener("activate", (e) =>
 // OpenCode 2.2.0 replaces the preload title on mount and session navigation.
 func brandTitleScript() string {
 	prefix, _ := json.Marshal(instance.Value("name") + " – ")
+	externalURL, _ := json.Marshal(brandToolTitlesPath())
+	titles, _ := json.Marshal(map[string]map[string]string{"de": mcp.DisplayTitles("de"), "en": mcp.DisplayTitles("en")})
 	return `const prefix = ` + string(prefix) + `
 const brandTitle = () => {
   if (document.title && !document.title.startsWith(prefix)) document.title = prefix + document.title
 }
 new MutationObserver(brandTitle).observe(document.head, { childList: true, subtree: true, characterData: true })
 brandTitle()
-`
+` + "\nconst toolDisplayTitles = " + string(titles) + ";\nconst externalToolTitlesURL = " + string(externalURL) + ";\n" + brandToolsScript
 }
 
 // serveBrand answers the paths the manager owns on <slug>.<domain>; it reports
@@ -76,6 +82,8 @@ func (rt *Router) serveBrand(w http.ResponseWriter, r *http.Request) bool {
 		w.Header().Set("Content-Type", "text/javascript; charset=utf-8")
 		w.Header().Set("Cache-Control", "no-cache")
 		io.WriteString(w, noopServiceWorker)
+	case r.URL.Path == brandToolTitlesPath():
+		return false // Dynamic metadata requires the runtime access checks and lease below.
 	case strings.HasPrefix(r.URL.Path, brandPrefix()):
 		http.NotFound(w, r)
 	default:

@@ -9,14 +9,14 @@ jobs:
       run:
         working-directory: agent-workspace
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           path: agent-workspace
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           repository: zkmkarlsruhe/agent-workspace-docs
           path: agent-workspace-docs
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
         with:
           go-version-file: agent-workspace/manager/go.mod
           cache-dependency-path: |
@@ -54,7 +54,7 @@ jobs:
       - name: Catalog checks
         run: |
           python3 -m venv /tmp/workspace-ci-venv
-          /tmp/workspace-ci-venv/bin/pip install PyYAML openpyxl matplotlib pandas
+          /tmp/workspace-ci-venv/bin/pip install PyYAML==6.0.3 openpyxl==3.1.5 matplotlib==3.11.2 pandas==3.1.0
           /tmp/workspace-ci-venv/bin/python -I -B deploy/etc-opencode/tests/lint.py deploy/etc-opencode deploy/catalog instance/example/rendered/opencode.jsonc
           /tmp/workspace-ci-venv/bin/python -I -B deploy/catalog/tests/test_lint.py
           /tmp/workspace-ci-venv/bin/python -I -B deploy/catalog/tests/event-planning/test_schedule.py

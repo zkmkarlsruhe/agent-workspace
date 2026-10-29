@@ -1,0 +1,216 @@
+[
+  {
+    "name": "freecad_open",
+    "title": "Open FreeCAD",
+    "description": "Start or reuse FreeCAD for this chat project. If starting, poll again after retry_after_seconds. Open the ready browser_url in a new tab.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "freecad_state",
+    "title": "Inspect FreeCAD model",
+    "description": "Read current documents, revisions, object IDs, dimensions, selection and errors from the visible FreeCAD session.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "session_id": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{32}$"
+        }
+      },
+      "required": [
+        "session_id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "freecad_document",
+    "title": "Open FreeCAD document",
+    "description": "Create a named document, or open a project-relative FCStd file. Existing open files are reused.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "session_id": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{32}$"
+        },
+        "action": {
+          "type": "string",
+          "enum": [
+            "new",
+            "open"
+          ]
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "session_id",
+        "action",
+        "name"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "freecad_execute",
+    "title": "Edit FreeCAD model",
+    "description": "Change one document with Python in its GUI thread. Requires a fresh revision and unique request_id. Never retry uncertain writes; use freecad_output for pending output.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "session_id": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{32}$"
+        },
+        "document": {
+          "type": "string"
+        },
+        "revision": {
+          "type": "string"
+        },
+        "code": {
+          "type": "string",
+          "maxLength": 32000
+        },
+        "request_id": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_-]{8,80}$"
+        }
+      },
+      "required": [
+        "session_id",
+        "document",
+        "revision",
+        "code",
+        "request_id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "freecad_output",
+    "title": "Read FreeCAD output",
+    "description": "Read the next page of an existing operation. Never restart the operation to retrieve its result.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "session_id": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{32}$"
+        },
+        "job_token": {
+          "type": "string"
+        },
+        "page_no": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "session_id",
+        "job_token",
+        "page_no"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "freecad_save",
+    "title": "Save FreeCAD model",
+    "description": "Save all open native documents in this project. Finish active GUI editing first. Returns project-relative file paths.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "session_id": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{32}$"
+        }
+      },
+      "required": [
+        "session_id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "freecad_export",
+    "title": "Export FreeCAD model",
+    "description": "Export one explicitly selected object from the current document revision to STEP or STL. Native documents are saved first.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "session_id": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{32}$"
+        },
+        "document": {
+          "type": "string"
+        },
+        "revision": {
+          "type": "string"
+        },
+        "object": {
+          "type": "string"
+        },
+        "format": {
+          "type": "string",
+          "enum": [
+            "step",
+            "stl"
+          ]
+        }
+      },
+      "required": [
+        "session_id",
+        "document",
+        "revision",
+        "object",
+        "format"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "freecad_view",
+    "title": "Show FreeCAD model",
+    "description": "Save a PNG of the current viewport in the project; returns a path usable with image_view.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "session_id": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{32}$"
+        }
+      },
+      "required": [
+        "session_id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "freecad_close",
+    "title": "Close FreeCAD",
+    "description": "Save documents and close the project application. Stops browser streams; files remain in the project.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "session_id": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{32}$"
+        }
+      },
+      "required": [
+        "session_id"
+      ],
+      "additionalProperties": false
+    }
+  }
+]

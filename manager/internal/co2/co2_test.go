@@ -9,7 +9,7 @@ import (
 	"github.com/zkmkarlsruhe/agent-workspace/manager/internal/instance"
 )
 
-// docs/adr/README.md B.2.4: 1.2 M input (80 % cached), 30 k output on Qwen3.5-397B
+// docs/adr/README.md B.2.4: 1.2 M input (80 % cached), 30 k output on reference model
 // gives 16–68 Wh and 6–23 g there (PUE 1 on input); here PUE 1.2 on input too.
 func TestWorkedExample(t *testing.T) {
 	whLo, whHi, gLo, gHi, ok := Estimate("default", 1_200_000, 960_000, 30_000)
@@ -20,7 +20,7 @@ func TestWorkedExample(t *testing.T) {
 	if math.Abs(sLo-gLo/2) > 1e-9 || math.Abs(sHi-gHi*2) > 1e-9 {
 		t.Fatalf("strong %.1f–%.1f", sLo, sHi)
 	}
-	if _, _, _, _, ok := Estimate("workspace/ionos-max", 1, 0, 1); ok {
+	if _, _, _, _, ok := Estimate("workspace/unlisted-max", 1, 0, 1); ok {
 		t.Fatal("unknown alias must not be estimated")
 	}
 }

@@ -521,7 +521,7 @@ func TestEmptyStatesAndTemplates(t *testing.T) {
 		}
 	}
 	w = do(t, h, req{path: "/?template=table"})
-	wantBody(t, w, ">Werte die Tabelle im \x45ingang aus", "Vorlage „Tabelle auswerten“")
+	wantBody(t, w, ">Werte die Tabelle im Eingang aus", "Vorlage „Tabelle auswerten“")
 	if strings.Contains(do(t, h, req{path: "/?template=gibtsnicht"}).Body.String(), "Vorlage „") {
 		t.Error("unknown template prefilled")
 	}
@@ -860,7 +860,7 @@ func TestStartProject(t *testing.T) {
 	if f.created[1].Name != "besucher-zahlen-3" || string(f.files["besucher-zahlen-3/inbox/a.csv"]) != "1;2" || f.files["besucher-zahlen-3/inbox/b.xlsx"] == nil {
 		t.Fatalf("created %v files %v", f.created, f.files)
 	}
-	if want := "besucher-zahlen-3|Werte die Tabelle im Eingangsordner aus: Besucher nach Monat.\n\nDateien im \x45ingang: a.csv, b.xlsx"; f.sessions[1] != want {
+	if want := "besucher-zahlen-3|Werte die Tabelle im Eingangsordner aus: Besucher nach Monat.\n\nDateien im Eingang: a.csv, b.xlsx"; f.sessions[1] != want {
 		t.Errorf("prompt %q", f.sessions[1])
 	}
 

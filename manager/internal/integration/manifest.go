@@ -17,6 +17,7 @@ import (
 
 // Manifest describes one integration, independently of instance grants.
 type Manifest struct {
+	shipped           bool
 	Schema            int             `json:"schema"`
 	Name              string          `json:"name"`
 	Version           string          `json:"version"`
@@ -280,8 +281,11 @@ func (m Manifest) BuiltinTools() bool { return m.Runs == "builtin" && m.Kind != 
 
 func knownScope(s string) bool {
 	switch s {
-	case "transcripts:read", "llm.background", "llm.user", "workspace:read", "workspace:write", "users:read", "notify":
+	case "nextcloud:live-edit", "transcripts:read", "llm.background", "llm.user", "workspace:read", "workspace:write", "users:read", "notify":
 		return true
 	}
 	return false
 }
+
+// ShippedBuiltinTools identifies tools owned by the embedded implementation.
+func (m Manifest) ShippedBuiltinTools() bool { return m.shipped && m.BuiltinTools() }

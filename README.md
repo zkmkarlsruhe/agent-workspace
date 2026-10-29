@@ -13,7 +13,7 @@ runtime; projects and chats survive when that runtime stops.
 
 Developed at ZKM | Center for Art and Media Karlsruhe
 
-## Portal navigation (2026-10-28)
+## Portal navigation
 
 Main bar: **My projects · Assistants · Capabilities · Help** / **Meine Projekte ·
 Assistenten · Fähigkeiten · Hilfe**. The menu under the username holds **About me

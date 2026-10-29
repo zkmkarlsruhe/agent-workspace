@@ -1,0 +1,22 @@
+import sys
+import os
+
+import FreeCAD as App
+import FreeCADGui as Gui
+
+sys.path[:0] = ["/opt/freecad-bridge", "/opt/workspace-freecad"]
+import freecad
+freecad.__path__.append("/opt/freecad-bridge/freecad")
+from freecad.mcp_bridge import bridge
+import workspace_cad
+
+App.ParamGet("User parameter:BaseApp/Preferences/Document").SetBool("UsingUndo", True)
+Gui.getMainWindow().setWindowTitle("FreeCAD — Workspace")
+if os.environ.get("WORKSPACE_FREECAD_PROJECT"):
+    from PySide.QtCore import QTimer
+    workspace_cad.restore()
+    workspace_cad._autosave_timer = QTimer()
+    workspace_cad._autosave_timer.timeout.connect(workspace_cad.autosave)
+    workspace_cad._autosave_timer.start(15000)
+bridge.start()
+App.Console.PrintMessage("Workspace session " + workspace_cad.SESSION + " ready\n")

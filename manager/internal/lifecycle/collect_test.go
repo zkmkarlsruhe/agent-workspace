@@ -5,6 +5,7 @@ package lifecycle
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strings"
 	"testing"
 	"time"
@@ -192,5 +193,38 @@ func TestCollectChatsSessionLimit(t *testing.T) {
 	}
 	if _, err := e.st.ChatByID(ctx, child.ID); err != store.ErrNotFound {
 		t.Fatal("child stored", err)
+	}
+}
+
+func TestCollectRetriesAfterFailureWithoutActivity(t *testing.T) {
+	e := setupInMemory(t)
+	ctx := context.Background()
+	if err := e.s.CreateProject(ctx, uid1, NewProject{Name: "report"}); err != nil {
+		t.Fatal(err)
+	}
+	e.s.CollectChats = true
+	se := ocapi.Session{ID: "ses_retry001", Location: ocapi.Location{Directory: e.s.projectDir("report")}}
+	se.Time.Updated = 1
+	e.oc.Sessions = []ocapi.Session{se}
+	fail := true
+	e.s.http.Transport = assistantTransport{http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if fail && r.URL.Path != "/api/session/active" {
+			w.WriteHeader(503)
+			return
+		}
+		e.oc.ServeHTTP(w, r)
+	})}
+	before := *e.s.get(uid1)
+	e.s.collectIfIdle(ctx, uid1, before)
+	if !e.s.get(uid1).collected.Equal(before.collected) {
+		t.Fatal("failed collection advanced timestamp")
+	}
+	fail = false
+	e.s.collectIfIdle(ctx, uid1, *e.s.get(uid1))
+	if _, err := e.st.ChatByID(ctx, se.ID); err != nil {
+		t.Fatal("no retry without new activity", err)
+	}
+	if !e.s.get(uid1).collected.After(before.collected) {
+		t.Fatal("successful collection not recorded")
 	}
 }

@@ -140,6 +140,7 @@ func dockerSpec(s Spec) (*container.Config, *container.HostConfig, *network.Netw
 	pids := int64(512)
 	cfg := &container.Config{
 		Image:       s.Image,
+		WorkingDir:  "/workspace",
 		User:        "1000:1000",
 		Env:         s.Env,
 		Cmd:         s.Cmd,
@@ -173,6 +174,20 @@ func dockerSpec(s Spec) (*container.Config, *container.HostConfig, *network.Netw
 	nc := &network.NetworkingConfig{EndpointsConfig: map[string]*network.EndpointSettings{
 		s.Network: {IPAMConfig: &network.EndpointIPAMConfig{IPv4Address: s.IP}},
 	}}
+	if s.Office {
+		cfg.WorkingDir = "/tmp"
+		hc.Init = new(true)
+		hc.ShmSize = 256 << 20
+		hc.Tmpfs = map[string]string{"/tmp": "size=1g,mode=1777"}
+		hc.Resources.MemoryReservation = 0
+	}
+	if s.FreeCAD {
+		cfg.WorkingDir = "/config"
+		hc.Init = new(true)
+		hc.ShmSize = 1 << 30
+		hc.Tmpfs = map[string]string{"/tmp": "size=512m,mode=1777", "/run": "size=256m,uid=1000,gid=1000,mode=0755,exec", "/config": "size=256m,uid=1000,gid=1000,mode=0750"}
+		hc.Resources.Memory, hc.Resources.MemorySwap = 4<<30, 4<<30
+	}
 	if s.Tool {
 		toolPids := int64(256)
 		hc.NetworkMode, nc = "none", nil
@@ -224,7 +239,7 @@ func (d *Docker) Inspect(ctx context.Context, name string) (Container, error) {
 
 func (d *Docker) Exec(ctx context.Context, name string, cmd []string, stdin io.Reader, stdout, stderr io.Writer) (int, error) {
 	cr, err := d.c.ExecCreate(ctx, name, client.ExecCreateOptions{
-		User: "1000:1000", Cmd: cmd, WorkingDir: "/workspace",
+		User: "1000:1000", Cmd: cmd,
 		AttachStdin: stdin != nil, AttachStdout: true, AttachStderr: true,
 	})
 	if err != nil {

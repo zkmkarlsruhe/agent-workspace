@@ -79,7 +79,7 @@ class ExportTest(DOCUMENTS["DocumentChecks"], unittest.TestCase):
         manifest = json.loads((overlay / "integrations/hello.json").read_text())
         self.assertEqual(manifest, json.loads((ROOT / "examples/mcp-hello/manifest.json").read_text()))
         self.assertEqual(manifest["kind"], "remote")
-        self.assertFalse(manifest["enabled_by_default"])
+        self.assertNotIn("enabled_by_default", manifest)
         item, = json.loads((overlay / "catalog.json").read_text())["items"]
         self.assertEqual((item["id"], item["litellm"], item["tools"]), ("hello", ["hello"], ["hello"]))
         self.assertIn("OC_INTEGRATIONS_DIR: /integrations", (overlay / "compose.yaml").read_text())

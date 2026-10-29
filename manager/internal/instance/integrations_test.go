@@ -41,6 +41,9 @@ func TestOptionalIntegrationValues(t *testing.T) {
 				delete(d.Defaults, "OC_LDAP_URL")
 			} else {
 				d.Integrations[owner] = false
+				if owner == "nextcloud" {
+					d.Integrations["office"] = false
+				}
 			}
 			if err := d.Validate(); err != nil {
 				t.Fatalf("disabled integration requires %s: %v", key, err)
@@ -74,7 +77,7 @@ func TestIntegrationSelection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(workspace.resolved) != len(builtins) || !workspace.HasBuiltinTools() {
+	if len(workspace.resolved) != len(builtins) || !workspace.Enabled("file-tools") || !workspace.HasBuiltinTools() {
 		t.Fatalf("production selection: %v", workspace.resolved)
 	}
 	for _, tool := range []string{"feedback_send", "nextcloud_fetch", "md_to_pdf", "image_view", "web_search", "rooms_free", "toolbox_run"} {
@@ -82,7 +85,7 @@ func TestIntegrationSelection(t *testing.T) {
 			t.Errorf("production lost %s", tool)
 		}
 	}
-	for _, name := range []string{"feedback", "nextcloud", "images", "web-research", "workspace-rooms", "evaluation", "workspace-style"} {
+	for _, name := range []string{"feedback", "nextcloud", "images", "web-research", "workspace-rooms", "evaluation", "workspace-style", "office"} {
 		workspace.Integrations[name] = false
 	}
 	if err := workspace.Validate(); err != nil {
@@ -104,6 +107,24 @@ func TestIntegrationSelection(t *testing.T) {
 	}
 	if strings.Contains(string(workspace.Render()["opencode.jsonc"]), `"url": "http://llm-gw:4000/mcp/`) {
 		t.Fatal("disabled MCP still rendered")
+	}
+}
+
+func TestFileToolsMinimalRuntime(t *testing.T) {
+	d, err := Load("../../../instance/minimal/instance.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	d.Integrations["file-tools"] = true
+	d.IntegrationGrants = map[string][]string{"file-tools": {"workspace:read", "workspace:write"}}
+	if err := d.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	rendered := string(d.Render()["opencode.jsonc"])
+	for _, value := range []string{"http://llm-gw:4000/mcp/workspace", `"execution": 240000`, `"resource": "mcp:workspace", "effect": "allow"`} {
+		if !strings.Contains(rendered, value) {
+			t.Fatalf("missing runtime contract %s", value)
+		}
 	}
 }
 

@@ -1,0 +1,10 @@
+#!/bin/sh
+set -eu
+# The manager installs the credential over exec after the container starts.
+if [ -n "${WORKSPACE_FREECAD_SESSION:-}" ]; then
+    until [ -s /run/freecad-token ]; do sleep 0.1; done
+    export SELKIES_BASIC_AUTH_USER=workspace
+    SELKIES_BASIC_AUTH_PASSWORD=$(cat /run/freecad-token)
+    export SELKIES_BASIC_AUTH_PASSWORD
+fi
+exec selkies session --enable-basic-auth true "$@"

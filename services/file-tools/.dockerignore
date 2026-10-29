@@ -1,0 +1,7 @@
+*
+!requirements.txt
+!worker.py
+!server.py
+!Dockerfile
+!test_worker.py
+!test_server.py

@@ -35,6 +35,7 @@ type ToolsPage struct {
 }
 
 type Tool struct {
+	Remote                           bool
 	ID, Title, Description, Category string
 	// English display texts from the catalog; "" = the German one is shown
 	TitleEN, DescriptionEN string

@@ -211,8 +211,12 @@ func (s *Service) applyProject(ctx context.Context, uid string, p store.Project)
 		base += "project/" + p.ID + "/"
 	}
 	remote := func(id string, enabled bool) any {
+		execution := 60000
+		if id == instance.Current().MCPServer {
+			execution = 240000
+		}
 		return map[string]any{"type": "remote", "url": base + id, "oauth": false, "codemode": false, "disabled": !enabled,
-			"timeout": map[string]int{"startup": 10000, "catalog": 15000, "execution": 60000}}
+			"timeout": map[string]int{"startup": 10000, "catalog": 15000, "execution": execution}}
 	}
 	if instance.Current().HasBuiltinTools() {
 		servers[instance.Current().MCPServer] = remote(instance.Current().MCPServer, true)

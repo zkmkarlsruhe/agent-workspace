@@ -1,0 +1,33 @@
+{{define "title"}}{{t "Knowledge"}}{{end}}
+{{define "content"}}
+<h1>{{t "Knowledge"}}</h1>
+{{template "team-invitations" .}}
+<p>{{t "Personal knowledge is visible only to you. Team knowledge is visible to every current team member, including its history."}}</p>
+<form class="form" method="get" action="/knowledge"><label for="knowledge-search">{{t "Search knowledge"}}</label><input class="input" id="knowledge-search" name="q" value="{{.D.Query}}" maxlength="300"><button class="btn" type="submit">{{t "Search"}}</button></form>
+{{range .D.Hits}}<article class="section"><h2><a href="/knowledge/{{.CollectionID}}/pages/{{.PageID}}?revision={{.Revision}}">{{.Title}}</a></h2><p>{{.CollectionTitle}}</p><p>{{.Snippet}}</p></article>{{end}}
+<h2>{{t "Knowledge bases"}}</h2>
+<ul>{{range .D.Collections}}<li><a href="/knowledge/{{.ID}}">{{.Title}}</a> · {{if .TeamID}}{{.TeamName}}{{else}}{{t "Personal"}}{{end}}{{if .Archived}} · {{t "Archived"}}{{end}}</li>{{else}}<li>{{t "No knowledge bases yet."}}</li>{{end}}</ul>
+{{if .KnowledgeWrite}}
+<details class="section"><summary>{{t "Create knowledge base"}}</summary>
+<form class="form" method="post" action="/knowledge"><input type="hidden" name="account" value="{{.D.Actor.Stamp}}">
+<div class="field"><label for="knowledge-title">{{t "Title"}}</label><input class="input" id="knowledge-title" name="title" maxlength="100" required></div>
+<div class="field"><label for="knowledge-description">{{t "Purpose"}}</label><textarea class="textarea" id="knowledge-description" name="description" maxlength="4000" rows="3"></textarea></div>
+<div class="field"><label for="knowledge-team">{{t "Audience"}}</label><select class="input" id="knowledge-team" name="team"><option value="">{{t "Personal"}}</option>{{range .D.Teams}}{{if and (eq .Role "admin") .Writable}}<option value="{{.ID}}">{{.Name}}</option>{{end}}{{end}}</select></div>
+<button class="btn btn--primary" type="submit">{{t "Create knowledge base"}}</button></form></details>
+<details class="section"><summary>{{t "Import knowledge snapshot"}}</summary>
+<p>{{t "Select manifest.json from an export. Current pages and sources receive new IDs. Old history stays in the export; memberships are never imported."}}</p>
+<form class="form" method="post" action="/knowledge/import" enctype="multipart/form-data"><input type="hidden" name="account" value="{{.D.Actor.Stamp}}">
+<div class="field"><label for="knowledge-manifest">{{t "Export manifest"}}</label><input id="knowledge-manifest" type="file" name="manifest" accept=".json,application/json" required></div>
+<div class="field"><label for="import-team">{{t "Audience"}}</label><select class="input" id="import-team" name="team"><option value="">{{t "Personal"}}</option>{{range .D.Teams}}{{if and (eq .Role "admin") .Writable}}<option value="{{.ID}}">{{.Name}}</option>{{end}}{{end}}</select></div>
+<label for="import-approve"><input id="import-approve" type="checkbox" required> {{t "I reviewed this content and its sources for the selected audience."}}</label>
+<button class="btn" type="submit">{{t "Import snapshot"}}</button></form></details>
+{{end}}
+{{if .KnowledgeWrite}}<h2>{{t "Project knowledge selection"}}</h2>
+<p>{{t "Selecting knowledge shares none of the project's files or chats with the team."}}</p>
+<form class="form" method="get" action="/knowledge"><label for="knowledge-project">{{t "Project"}}</label><select class="input" id="knowledge-project" name="project" required>{{range .D.Projects}}{{if not .Assistant.ID}}<option value="{{.ID}}"{{if eq $.D.Project .ID}} selected{{end}}>{{.Folder}}</option>{{end}}{{end}}</select><button class="btn" type="submit">{{t "Show selection"}}</button></form>
+{{if .D.Project}}
+{{range .D.Bound}}<form class="section" method="post" action="/knowledge/bind"><input type="hidden" name="account" value="{{$.D.Actor.Stamp}}"><input type="hidden" name="project" value="{{$.D.Project}}"><input type="hidden" name="collection" value="{{.ID}}"><span>{{.Title}}</span> <button class="btn" type="submit">{{t "Remove selection"}}</button></form>{{end}}
+<form class="form section" method="post" action="/knowledge/bind"><input type="hidden" name="account" value="{{.D.Actor.Stamp}}"><input type="hidden" name="project" value="{{.D.Project}}"><input type="hidden" name="on" value="true"><label for="bind-knowledge">{{t "Knowledge base"}}</label><select class="input" id="bind-knowledge" name="collection">{{range .D.Collections}}{{if not .Archived}}<option value="{{.ID}}">{{.Title}} · {{if .TeamID}}{{.TeamName}}{{else}}{{t "Personal"}}{{end}}</option>{{end}}{{end}}</select><button class="btn" type="submit">{{t "Select knowledge"}}</button></form>
+{{end}}
+{{end}}
+{{end}}

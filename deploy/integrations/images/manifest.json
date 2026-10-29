@@ -5,7 +5,8 @@
   "runs": "builtin",
   "tools": [
     "image_generate",
-    "image_view"
+    "image_view",
+    "image_edit"
   ],
   "scopes": [
     "workspace:read",

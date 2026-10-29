@@ -83,6 +83,9 @@ func (s *Server) withCapabilities(r *http.Request, id Identity, v *view) {
 		if tools, err := s.tools.Tools(r.Context(), id.UID); err == nil {
 			v.ProjectScoped = tools.ProjectScoped
 			for _, tool := range append(localize(lang(r), tools.Standard), localize(lang(r), tools.Catalog)...) {
+				if tool.Remote && !s.capabilities["mcp-central"] {
+					continue
+				}
 				v.Capabilities[tool.ID] = true
 				v.CapabilityCopy[tool.ID] = tool.Description
 			}
@@ -97,8 +100,8 @@ func (s *Server) withCapabilities(r *http.Request, id Identity, v *view) {
 	v.Capabilities["web"] = v.Capabilities["web-research"] && d.ToolEnabled("web_search") && s.capabilities["web"]
 	v.Capabilities["md-to-pdf"] = v.Capabilities["md-to-pdf"] && v.Capabilities["pdf"]
 	v.Capabilities["rooms"] = v.Capabilities["rooms"] && d.Enabled("workspace-rooms") && s.capabilities["rooms"]
-	v.Capabilities["workspace-knowledge"] = v.Capabilities["workspace-knowledge"] && d.Enabled("workspace-knowledge")
-	v.Capabilities["library"] = v.Capabilities["library"] && d.Enabled("library")
+	v.Capabilities["workspace-knowledge"] = v.Capabilities["workspace-knowledge"] && d.Enabled("workspace-knowledge") && s.capabilities["mcp-central"]
+	v.Capabilities["library"] = v.Capabilities["library"] && d.Enabled("library") && s.capabilities["mcp-central"]
 	v.Capabilities["media"] = v.Capabilities["media"] && d.Enabled("toolbox")
 	v.Capabilities["guides"] = true
 	for _, id := range []string{"minutes", "letter-email", "press-release", "translate", "plain-language", "alt-text", "presentation", "event-planning", "travel-expenses"} {
@@ -115,13 +118,13 @@ func (s *Server) withCapabilities(r *http.Request, id Identity, v *view) {
 
 func (s *Server) consentPage(w http.ResponseWriter, r *http.Request, id Identity) {
 	d := s.consentData(r, id.UID)
-	d.Next = s.next(r.URL.Query().Get("next"))
+	d.Next = s.next(r.URL.Query().Get("next"), id.Slug)
 	s.render(w, r, http.StatusOK, "consent.html", view{User: id, Nav: "consent", D: d})
 }
 
 func (s *Server) consentAccept(w http.ResponseWriter, r *http.Request, id Identity) {
 	d := s.consentData(r, id.UID)
-	d.Next = s.next(r.FormValue("next"))
+	d.Next = s.next(r.FormValue("next"), id.Slug)
 	if r.FormValue("agree") != "yes" {
 		s.render(w, r, http.StatusUnprocessableEntity, "consent.html", view{User: id, Nav: "consent", D: d,
 			Errors: []fieldError{{Field: "agree", Msg: "Please confirm that you have read the notice and agree."}}})
@@ -138,9 +141,8 @@ func (s *Server) declined(w http.ResponseWriter, r *http.Request, id Identity) {
 	s.render(w, r, http.StatusOK, "consent-declined.html", view{User: id, Nav: "consent", D: s.consentData(r, id.UID)})
 }
 
-// weiter keeps only a path on the portal or an address on a person host
-// <slug>.<domain>; the router redirects a foreign slug back to the portal.
-func (s *Server) next(v string) string {
+// next keeps only a portal path or an address on the current person's host.
+func (s *Server) next(v, slug string) string {
 	// browsers drop tabs and newlines and read a backslash as a slash: "/\t/x" is "//x"
 	if strings.HasPrefix(v, "/consent") || strings.ContainsFunc(v, func(c rune) bool { return c < 0x20 || c == 0x7f || c == '\\' }) {
 		return "/"
@@ -153,7 +155,7 @@ func (s *Server) next(v string) string {
 	if err != nil || host == "" || u.Scheme != "https" || u.User != nil || u.Opaque != "" {
 		return "/"
 	}
-	if sub, ok := strings.CutSuffix(u.Host, "."+host); ok && sub != "" && !strings.ContainsAny(sub, ".:") {
+	if slug != "" && !strings.ContainsAny(slug, ".:/\\") && u.Host == slug+"."+host {
 		return u.String()
 	}
 	return "/"

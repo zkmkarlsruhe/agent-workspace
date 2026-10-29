@@ -23,7 +23,7 @@ func (d *Definition) Enabled(name string) bool {
 // ToolEnabled gates both discovery and direct calls in the legacy MCP transport.
 func (d *Definition) ToolEnabled(tool string) bool {
 	for _, m := range d.resolved {
-		if !m.BuiltinTools() {
+		if !m.ShippedBuiltinTools() {
 			continue
 		}
 		for _, local := range m.Tools {
@@ -37,7 +37,7 @@ func (d *Definition) ToolEnabled(tool string) bool {
 
 func (d *Definition) HasBuiltinTools() bool {
 	for _, m := range d.resolved {
-		if len(m.Tools) > 0 && m.BuiltinTools() {
+		if len(m.Tools) > 0 && m.ShippedBuiltinTools() {
 			return true
 		}
 	}

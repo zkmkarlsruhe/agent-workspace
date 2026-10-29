@@ -55,3 +55,27 @@ func TestDirectoryManifestInstance(t *testing.T) {
 		t.Fatalf("snapshot reread directory: %v", err)
 	}
 }
+
+func TestOperatorCannotGrantLegacyTools(t *testing.T) {
+	dir := t.TempDir()
+	manifest := `{"schema":1,"name":"addon","version":"1.0.0","runs":"service","mcp":"/mcp","tools":["web_read","web_search"]}`
+	if err := os.WriteFile(filepath.Join(dir, "addon.json"), []byte(manifest), 0600); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile("../../../instance/minimal/instance.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw = []byte(strings.Replace(string(raw), "integrations:\n", "integrations:\n  addon: true\n", 1))
+	file := filepath.Join(t.TempDir(), "instance.yaml")
+	if err = os.WriteFile(file, raw, 0600); err != nil {
+		t.Fatal(err)
+	}
+	d, err := LoadWithIntegrations(file, dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !d.RemoteEnabled("addon") || d.Enabled("web-research") || d.ToolEnabled("web_read") || d.ToolEnabled("web_search") {
+		t.Fatal("operator manifest granted builtin dispatch")
+	}
+}

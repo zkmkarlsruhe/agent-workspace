@@ -1,0 +1,23 @@
+{
+  "items": [
+    {
+      "id": "file-tools",
+      "kind": "mcp",
+      "tier": "optional",
+      "category": "images",
+      "title": "Image, vector and PDF tools",
+      "title_de": "Bild-, Vektor- und PDF-Werkzeuge",
+      "description": "Remove backgrounds, trace and edit vectors, transform images, extract PDF text and transcribe handwritten notes.",
+      "description_de": "Bilder freistellen, vektorisieren und umwandeln, SVG bearbeiten, PDF-Text extrahieren und handschriftliche Notizen abschreiben.",
+      "tools": [
+        "background_remove",
+        "raster_to_vector",
+        "svg_create",
+        "svg_edit",
+        "image_transform",
+        "pdf_to_text",
+        "handwriting_to_text"
+      ]
+    }
+  ]
+}

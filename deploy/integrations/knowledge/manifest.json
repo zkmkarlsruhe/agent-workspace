@@ -1,0 +1,30 @@
+{
+  "schema": 1,
+  "name": "knowledge",
+  "version": "0.1.0",
+  "runs": "builtin",
+  "holds_personal_data": true,
+  "portal": [
+    {
+      "path": "/knowledge",
+      "roles": [
+        "user"
+      ]
+    },
+    {
+      "path": "/teams",
+      "roles": [
+        "user"
+      ]
+    }
+  ],
+  "health": "optional",
+  "tools": [
+    "knowledge_list",
+    "knowledge_search",
+    "knowledge_read",
+    "knowledge_create",
+    "knowledge_update"
+  ],
+  "requires_opencode": ">=2.2.0 <2.3"
+}

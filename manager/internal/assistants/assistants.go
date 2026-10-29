@@ -44,6 +44,8 @@ func (i *Integer) UnmarshalYAML(n *yaml.Node) error {
 }
 
 type Definition struct {
+	Owner            string   `yaml:"owner,omitempty" json:"owner,omitempty"`
+	GapCollection    bool     `yaml:"gap_collection,omitempty" json:"gap_collection,omitempty"`
 	ProjectMode      string   `yaml:"project_mode,omitempty" json:"project_mode,omitempty"`
 	Enabled          bool     `yaml:"enabled" json:"enabled"`
 	Audience         []string `yaml:"audience" json:"audience"`
@@ -101,6 +103,9 @@ func (p Pin) Validate() error {
 func (p Definition) Validate() error {
 	if !idRE.MatchString(p.ID) || p.Version < 1 {
 		return errors.New("assistant: invalid id or version")
+	}
+	if len(p.Owner) > 200 || strings.ContainsAny(p.Owner, "\r\n\x00") {
+		return errors.New("assistant: invalid owner")
 	}
 	for _, text := range append([]string{p.Title, p.Description, p.Prompt.Role, p.Prompt.Escalation}, p.Prompt.Rules...) {
 		if strings.TrimSpace(text) == "" || strings.ContainsRune(text, '\x00') {

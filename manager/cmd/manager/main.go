@@ -9,6 +9,7 @@ import (
 	"context"
 	"crypto/subtle"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"net/netip"
@@ -17,6 +18,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -25,6 +27,7 @@ import (
 	"github.com/zkmkarlsruhe/agent-workspace/manager/internal/catalog"
 	"github.com/zkmkarlsruhe/agent-workspace/manager/internal/config"
 	"github.com/zkmkarlsruhe/agent-workspace/manager/internal/convert"
+	"github.com/zkmkarlsruhe/agent-workspace/manager/internal/filetools"
 	"github.com/zkmkarlsruhe/agent-workspace/manager/internal/gateway/central"
 	"github.com/zkmkarlsruhe/agent-workspace/manager/internal/gateway/llm"
 	"github.com/zkmkarlsruhe/agent-workspace/manager/internal/gateway/mcp"
@@ -43,6 +46,7 @@ import (
 // newPortal is set by an optional file of this package (portal.go, added
 // with the portal package). Without it the portal host answers 503.
 var portalTaskAssistants *assistantchat.Service
+var portalKnowledge *store.Store
 
 var newPortal func(svc *lifecycle.Service, cfg config.Config, pdf pdfFunc) (http.Handler, error)
 
@@ -73,6 +77,15 @@ func run(log *slog.Logger) error {
 		return err
 	}
 	defer st.Close()
+	if err := st.LoadAssistants(context.Background()); err != nil {
+		return err
+	}
+	if id := os.Getenv("OC_RESET_ASSISTANT"); id != "" {
+		if err := resetAssistant(context.Background(), st, cfg.Instance, id); err != nil {
+			return err
+		}
+	}
+	cfg.Instance = instance.Current()
 	if err := st.CheckIdentityIssuer(context.Background(), cfg.IdentityIssuer); err != nil {
 		return err
 	}
@@ -107,6 +120,13 @@ func run(log *slog.Logger) error {
 		return err
 	}
 	svc := lifecycle.New(cfg, rt, st, log)
+	var servers []*http.Server
+	var loopDone <-chan struct{}
+	defer func() {
+		shutdown, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		defer cancel()
+		shutdownManager(shutdown, servers, stop, loopDone, svc.Close)
+	}()
 	var pdf pdfFunc
 	workspace := mcp.Server{SearXNG: searx, SlotOf: cfg.SlotOf, Users: st, Usage: st, Log: log, Lang: st.Lang,
 		Files: svc, DenyHosts: fetchDenyHosts(cfg), Reserve: bud.ReserveEUR, SearchChargeEUR: &cfg.SearchChargeEUR, FetchChargeEUR: &cfg.FetchChargeEUR, PageCacheMB: &cfg.PageCacheMB}
@@ -131,6 +151,14 @@ func run(log *slog.Logger) error {
 			return gw.Image(ctx, u, session, cfg.ImageModels, prompt, size, nil)
 		}
 	}
+	if cfg.Instance.Enabled("file-tools") && cfg.FileToolsURL != "" {
+		workspace.ProcessFiles = filetools.New(cfg.FileToolsURL)
+		if cfg.HandwritingModel != "" {
+			workspace.Transcribe = func(ctx context.Context, u store.User, session string, png []byte) (llm.Transcription, error) {
+				return gw.Transcribe(ctx, u, session, cfg.HandwritingModel, png)
+			}
+		}
+	}
 	if cfg.Instance.Enabled("pdf") && cfg.PDFURL != "" {
 		pdf = convert.New(cfg.PDFURL).MarkdownToPDF
 		workspace.Files, workspace.PDF = svc, pdf
@@ -145,6 +173,14 @@ func run(log *slog.Logger) error {
 		go hs.Loop(ctx, 5*time.Minute) // failed revocations
 		// Revocation and account cleanup remain available when the integration is disabled.
 		svc.Disconnect = hs.DisconnectAll
+		hs.Invalidate = func(ctx context.Context, uid, service string) error { return svc.CloseOffice(ctx, uid) }
+		if cfg.Instance.Enabled("office") && cfg.OfficeImage != "" {
+			svc.OfficeCreds = func(ctx context.Context, uid string) (string, string, error) {
+				_, login, password, err := hs.Creds(ctx, uid, cfg.House[0].ID)
+				return login, password, err
+			}
+			workspace.Office = svc.CallOffice
+		}
 		if cfg.Instance.Enabled("nextcloud") {
 			portalConns = conns{hs}
 			workspace.Nextcloud = ncTools(hs, cfg.House[0], svc)
@@ -171,6 +207,16 @@ func run(log *slog.Logger) error {
 				return cat.OnItems(ctx, uid, catalog.KindToolbox)
 			}}
 	}
+	if cfg.Instance.Enabled("freecad") && cfg.FreeCADImage != "" && cat != nil {
+		svc.FreeCADAllowed = func(ctx context.Context, uid, project string) bool {
+			if st.SharedRuntimeAccess(ctx, uid) != nil {
+				return false
+			}
+			allowed, _ := cat.Grants(catalog.WithProject(ctx, project), uid, "en")
+			return allowed["freecad_open"]
+		}
+		workspace.FreeCAD = svc.CallFreeCAD
+	}
 	portalSettings = newSettings(cfg, st, svc, gw, log) // after the catalog: chains its AfterStart
 	if cfg.Instance.Enabled("evaluation") && cfg.AdminGroup != "" {
 		aw := newEvaluation(st, gw, log)
@@ -179,16 +225,22 @@ func run(log *slog.Logger) error {
 		go aw.Loop(ctx)
 	}
 	// Workspace-MCP on the llm-gw listener: same per-person source check, already in NO_PROXY of the containers
-	portalTaskAssistants = &assistantchat.Service{Store: st, Complete: gw.AssistantCompletion}
+	portalKnowledge = st
+	portalTaskAssistants = &assistantchat.Service{Store: st, PreviewComplete: gw.AssistantDraftCompletion, Complete: gw.AssistantCompletion}
 	gwMux := http.NewServeMux()
 	if cfg.Instance.HasBuiltinTools() {
 		workspace.AssistantSession = svc.AuthorizeAssistantSession
+		if cfg.Instance.Enabled("knowledge") {
+			workspace.Knowledge = st
+			workspace.KnowledgeSession = svc.KnowledgeSession
+		}
 		organisationServer := mcp.New(workspace)
 		gwMux.Handle("/mcp/"+cfg.Instance.MCPServer, organisationServer)
 		gwMux.Handle("/mcp/assistant/{project}/"+cfg.Instance.MCPServer, organisationServer)
 		gwMux.Handle("/mcp/project/{capProject}/"+cfg.Instance.MCPServer, organisationServer)
 	}
 	gwMux.Handle("GET /workspace/usage", usageHandler{slotOf: cfg.SlotOf, st: st, capEUR: cfg.CostCapDayEUR, now: time.Now})
+	var externalTitles func(context.Context, store.User, string) (map[string]string, error)
 	if cat != nil {
 		// D59: catalog mcp-central entries, LiteLLM MCP gateway with the manager's key
 		centralServer := central.New(central.Server{ChargeEUR: &cfg.Accounting.MCPEUR, Upstream: mcpUpstream, APIKey: cfg.MCPUpstreamKey, SlotOf: cfg.SlotOf,
@@ -200,12 +252,13 @@ func run(log *slog.Logger) error {
 			}, Items: func(ctx context.Context, uid string) []catalog.Item {
 				return cat.OnItems(ctx, uid, catalog.KindCentral)
 			}})
+		externalTitles = centralServer.DisplayTitles
 		gwMux.Handle("/mcp/{name}", centralServer)
 		gwMux.Handle("/mcp/project/{capProject}/{name}", centralServer)
 		gwMux.Handle("/mcp/assistant/{project}/{name}", centralServer)
 		// Keep existing project configurations usable during the naming transition.
 		gwMux.Handle("/mcp/profile/{project}/{name}", centralServer)
-		portalTaskAssistants = &assistantchat.Service{Store: st, Items: cat.AssistantItems, Tools: centralServer.AssistantTools, Call: centralServer.AssistantCall, Complete: gw.AssistantCompletion}
+		portalTaskAssistants = &assistantchat.Service{Store: st, PreviewComplete: gw.AssistantDraftCompletion, Items: cat.AssistantItems, Tools: centralServer.AssistantTools, Call: centralServer.AssistantCall, Complete: gw.AssistantCompletion}
 	}
 	gwMux.Handle("/", gw)
 
@@ -222,7 +275,12 @@ func run(log *slog.Logger) error {
 	if err != nil {
 		return err
 	}
-	go svc.Loop(ctx)
+	loopEnded := make(chan struct{})
+	loopDone = loopEnded
+	go func() {
+		defer close(loopEnded)
+		svc.Loop(ctx)
+	}()
 
 	var portal http.Handler
 	if newPortal != nil {
@@ -234,6 +292,8 @@ func run(log *slog.Logger) error {
 		Issuer: cfg.IdentityIssuer, SubjectHeader: cfg.IdentitySubjectHeader,
 		Headers: cfg.IdentityHeaders, GroupsSeparator: cfg.IdentityGroupsSeparator}
 	edge := router.New(router.Router{
+		ToolTitles:    externalTitles,
+		FreeCADTarget: svc.FreeCADTarget,
 		RuntimeAccess: st.SharedRuntimeAccess,
 		Lang:          st.Lang,
 		Domain:        cfg.Domain,
@@ -257,7 +317,7 @@ func run(log *slog.Logger) error {
 		admin.Handle("POST /admin/catalog/reload", catalogReload(cat))
 	}
 
-	servers := []*http.Server{
+	servers = []*http.Server{
 		// no WriteTimeout: SSE and WebSocket streams stay open
 		{Addr: cfg.EdgeAddr, Handler: logx.Middleware(log, "edge", checker.SourceTrusted, edge), ReadHeaderTimeout: 10 * time.Second, IdleTimeout: 120 * time.Second},
 		{Addr: cfg.LLMGWAddr, Handler: logx.Middleware(log, "llm-gw", nil, gwGate(cfg, st, bud, gwMux)), ReadHeaderTimeout: 10 * time.Second, IdleTimeout: 120 * time.Second},
@@ -280,12 +340,25 @@ func run(log *slog.Logger) error {
 	case <-ctx.Done():
 	case err = <-errc:
 	}
-	sctx, scancel := context.WithTimeout(context.Background(), 20*time.Second)
-	defer scancel()
-	for _, s := range servers {
-		s.Shutdown(sctx) // user containers keep running; the next start reconciles
-	}
 	return err
+}
+
+func shutdownManager(ctx context.Context, servers []*http.Server, stop context.CancelFunc, loopDone <-chan struct{}, closeLifecycle func()) {
+	stop()
+	var drained sync.WaitGroup
+	for _, server := range servers {
+		drained.Go(func() {
+			if err := server.Shutdown(ctx); err != nil {
+				_ = server.Close()
+			}
+		})
+	}
+	drained.Wait()
+	if loopDone != nil {
+		<-loopDone
+	}
+	// Office workers close; main runtime containers remain available for adoption.
+	closeLifecycle()
 }
 
 func adminAuth(h http.Handler, token string) http.Handler {
@@ -317,7 +390,7 @@ func notFromUserNets(h http.Handler, cfg config.Config) http.Handler {
 func fetchDenyHosts(cfg config.Config) []string {
 	hosts := append([]string(nil), cfg.FetchDenyHosts...)
 	urls := []*url.URL{cfg.RoomsURL, cfg.BikesURL}
-	for _, raw := range []string{cfg.LiteLLMBaseURL, cfg.SearXNGURL, cfg.PDFURL} {
+	for _, raw := range []string{cfg.LiteLLMBaseURL, cfg.LLMUpstreamURL, cfg.MCPUpstreamURL, cfg.SearXNGURL, cfg.PDFURL, cfg.FileToolsURL} {
 		if u, err := url.Parse(raw); err == nil {
 			urls = append(urls, u)
 		}
@@ -331,4 +404,23 @@ func fetchDenyHosts(cfg config.Config) []string {
 		}
 	}
 	return hosts
+}
+
+// resetAssistant is an explicit, SQL-free recovery path for a quarantined definition.
+func resetAssistant(ctx context.Context, st *store.Store, defaults *instance.Definition, id string) error {
+	p, ok := defaults.Assistant(id)
+	if !ok {
+		return fmt.Errorf("reset assistant %q: no instance definition", id)
+	}
+	definitions, err := st.StoredAssistants(ctx)
+	if err != nil {
+		return err
+	}
+	for _, old := range definitions {
+		if old.ID == id {
+			_, err = st.SaveAssistant(ctx, p, instance.Current().AssistantPin(old.Definition).Hash, "operator-reset")
+			return err
+		}
+	}
+	return fmt.Errorf("reset assistant %q: no stored definition", id)
 }

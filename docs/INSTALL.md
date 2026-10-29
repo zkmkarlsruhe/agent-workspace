@@ -247,7 +247,7 @@ ranges with your operator, LAN, VPN and site egress ranges:
         sourceRange:
           - 127.0.0.1/32
           - 192.168.0.0/16
-          - 10.212.0.0/16
+          - 198.51.100.0/24
           - 192.0.2.0/24 # Replace with your site's public egress range.
 ```
 
@@ -329,8 +329,9 @@ Then configure:
    `https://auth.YOUR_DOMAIN/`. Save and wait for the provider to load.
 3. Under **Directory > Users**, create an active test user, such as `trial-user`,
    with name, email and password. Never reuse usernames for different people.
-   This example has no group gate: every active user allowed by the provider
-   can use it. Add application policy/group bindings before enrolling others.
+   Create the `workspace-users` group and add `trial-user` to it. The manager
+   defaults `OC_REQUIRED_GROUP` to `workspace-users`, matching the oauth2-proxy
+   overlay. Only members may enter; add other people deliberately.
 
 These settings follow Authentik's [domain-level forward auth](https://docs.goauthentik.io/add-secure-apps/providers/proxy/forward_auth/)
 and [embedded outpost](https://docs.goauthentik.io/add-secure-apps/outposts/embedded/)
@@ -364,23 +365,36 @@ docker compose up -d postgres authentik authentik-worker traefik
 
 Merge the worker environment into an existing override instead of replacing
 it. Wait for Authentik's default blueprints and HTTPS endpoint to be ready,
-then load the locally created `.env` without printing it and run:
+then read only the two required values from the locally created `.env` and run:
 
 ```sh
-set -a
-. ./.env
-set +a
-./authentik-bootstrap.sh
+OC_DOMAIN=$(sed -n 's/^OC_DOMAIN=//p' .env) \
+AUTHENTIK_BOOTSTRAP_TOKEN=$(sed -n 's/^AUTHENTIK_BOOTSTRAP_TOKEN=//p' .env) \
+  ./authentik-bootstrap.sh
 ```
 
 The script uses the verified HTTPS API to create/update the Workspace proxy
 provider, application and embedded outpost. It preserves the outpost's other
-configuration and providers. It creates active `trial-user` and stores its
+configuration and providers. It creates `workspace-users`, adds active `trial-user` to that group and stores its
 generated password only in `/root/trial-user.pass` (root-owned, mode 0600).
 Reruns reuse the objects and saved password; an existing user without that
 file is rejected. The script reads back the settings as a self-check.
-Protect `.env`, which also holds the initial administrator password and API
-token. See Authentik's [automated installation](https://docs.goauthentik.io/install-config/automated-install).
+The generated token is an administrator credential. After verification, revoke
+it with the API and remove both bootstrap variables from the worker override and
+`.env`. Keep the initial administrator password in your password manager first.
+The `.env` commands above expect unquoted domain and generated hexadecimal token
+values; they do not source `.env` or export its other secrets.
+
+```sh
+OC_DOMAIN=$(sed -n 's/^OC_DOMAIN=//p' .env) \
+AUTHENTIK_BOOTSTRAP_TOKEN=$(sed -n 's/^AUTHENTIK_BOOTSTRAP_TOKEN=//p' .env) \
+  ./authentik-bootstrap.sh --revoke
+sed -i '/^AUTHENTIK_BOOTSTRAP_\(PASSWORD\|TOKEN\)=/d' .env
+```
+
+Remove the two bootstrap environment entries from `compose.override.yaml`, then
+recreate the worker with `docker compose up -d --force-recreate authentik-worker`.
+Protect `.env`, which still holds other deployment secrets. See Authentik's [automated installation](https://docs.goauthentik.io/install-config/automated-install).
 Browser login and file acceptance below are still required.
 
 ## 5. Login, new project, chat and download
@@ -669,3 +683,13 @@ file and manager header mapping; no code edits are required. Callback and sign-o
 routes belong to the auth proxy and never bypass consent inside the manager.
 Changing issuer/subject settings on an existing installation requires the reviewed
 [migration procedure](https://zkmkarlsruhe.github.io/agent-workspace-docs/IDENTITY/#migration-of-existing-accounts), not a fresh-install switch.
+
+## Optional live Office editing
+
+See [Office integration](https://zkmkarlsruhe.github.io/agent-workspace-docs/OFFICE/) for the separate browser worker, image preload,
+network allowlist, account connection and project permission. It is disabled by default.
+
+## FreeCAD application
+
+Follow the [FreeCAD operator guide](https://zkmkarlsruhe.github.io/agent-workspace-docs/freecad/) for setup, per-person Python
+authority, persistent files and autosave limits before enabling the capability.

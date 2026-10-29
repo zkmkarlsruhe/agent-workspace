@@ -86,7 +86,7 @@ func TestBudgetIndependentUIDs(t *testing.T) {
 
 func TestMeterUsageAfterLongLine(t *testing.T) {
 	var events []store.UsageEvent
-	m := &meter{accounting: instance.Accounting{UpstreamCostCurrency: "EUR"}, sse: true, done: func(e store.UsageEvent) { events = append(events, e) }}
+	m := &meter{accounting: instance.Accounting{UpstreamCostCurrency: "EUR", LargestContext: 262144, MaxOutputTokens: 32768}, sse: true, done: func(e store.UsageEvent) { events = append(events, e) }}
 	m.feed([]byte("data: " + strings.Repeat("x", maxScan)))
 	if !m.skip || m.buf.Len() != 0 {
 		t.Fatal("oversize line not skipped")

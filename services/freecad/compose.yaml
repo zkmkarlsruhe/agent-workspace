@@ -1,0 +1,49 @@
+name: workspace-freecad-prototype
+services:
+  freecad:
+    build: .
+    image: workspace-freecad:prototype
+    init: true
+    user: "1000:1000"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 4g
+    cpus: 2
+    pids_limit: 512
+    shm_size: 1g
+    environment:
+      TZ: Europe/Berlin
+      TITLE: FreeCAD prototype
+      SELKIES_BASIC_AUTH_USER: workspace
+      SELKIES_BASIC_AUTH_PASSWORD: ${SELKIES_BASIC_AUTH_PASSWORD:?set a prototype GUI password}
+    volumes:
+      - config:/config
+      - projects:/projects
+    tmpfs:
+      - /run:uid=1000,gid=1000,mode=0755,exec,size=256m
+      - /tmp:uid=1000,gid=1000,mode=1777,size=512m
+    networks: [desktop]
+  browser:
+    image: nginx@sha256:47928bf67eb62a1863cb08d9ecb52d3e704304ba614eaee17884204677702951
+    entrypoint: [nginx, -c, /etc/freecad-proxy.conf, -g, "daemon off;"]
+    user: "1000:1000"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 64m
+    pids_limit: 32
+    tmpfs: [/tmp]
+    volumes:
+      - ./proxy.conf:/etc/freecad-proxy.conf:ro
+    ports:
+      - "127.0.0.1:${FREECAD_PORT:-21880}:3000"
+    networks: [desktop, entry]
+    depends_on: [freecad]
+networks:
+  entry:
+  desktop:
+    internal: true
+volumes:
+  config:
+  projects:

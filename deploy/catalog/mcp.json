@@ -24,6 +24,64 @@
       "tools": [
         "md_to_pdf"
       ]
+    },
+    {
+      "id": "office",
+      "title": "Edit live Office documents",
+      "title_de": "Office-Dokumente live bearbeiten",
+      "description": "Edit explicitly chosen Word documents and spreadsheet ranges in your connected Nextcloud. Access applies to your account across enabled projects.",
+      "description_de": "Bearbeitet ausdr\u00fccklich gew\u00e4hlte Word-Dokumente und Tabellenbereiche in deiner verbundenen Nextcloud. Der Zugang gilt f\u00fcr dein Konto \u00fcber die freigegebenen Projekte hinweg.",
+      "tier": "optional",
+      "category": "texts",
+      "tools": [
+        "office_status",
+        "office_documents",
+        "office_open",
+        "office_read",
+        "office_find",
+        "office_capture",
+        "office_replace",
+        "office_close"
+      ]
+    },
+    {
+      "id": "file-tools",
+      "kind": "mcp",
+      "tier": "optional",
+      "category": "images",
+      "title": "Image, vector and PDF tools",
+      "title_de": "Bild-, Vektor- und PDF-Werkzeuge",
+      "description": "Remove backgrounds, trace and edit vectors, transform images, extract PDF text and transcribe handwritten notes.",
+      "description_de": "Bilder freistellen, vektorisieren und umwandeln, SVG bearbeiten, PDF-Text extrahieren und handschriftliche Notizen abschreiben.",
+      "tools": [
+        "background_remove",
+        "raster_to_vector",
+        "svg_create",
+        "svg_edit",
+        "image_transform",
+        "pdf_to_text",
+        "handwriting_to_text"
+      ]
+    },
+    {
+      "id": "freecad",
+      "title": "Design 3D models with FreeCAD",
+      "title_de": "3D-Modelle mit FreeCAD gestalten",
+      "description": "Open FreeCAD in a browser tab and work on the same project document together. Native CAD files remain in your project.",
+      "description_de": "FreeCAD im Browser \u00f6ffnen und gemeinsam am selben Projektdokument arbeiten. Native CAD-Dateien bleiben im Projekt.",
+      "tier": "optional",
+      "category": "images",
+      "tools": [
+        "freecad_open",
+        "freecad_state",
+        "freecad_document",
+        "freecad_execute",
+        "freecad_output",
+        "freecad_save",
+        "freecad_export",
+        "freecad_view",
+        "freecad_close"
+      ]
     }
   ],
   "include_instance": true

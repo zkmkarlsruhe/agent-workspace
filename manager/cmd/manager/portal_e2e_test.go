@@ -266,7 +266,7 @@ func TestPortalE2EUX(t *testing.T) {
 			t.Fatalf("%s not in inbox: %q %v", f, b, err)
 		}
 	}
-	if len(s.oc.Prompts) != 1 || !strings.Contains(s.oc.Prompts[0], desc) || !strings.Contains(s.oc.Prompts[0], "Dateien im \x45ingang: a.csv, b.xlsx") {
+	if len(s.oc.Prompts) != 1 || !strings.Contains(s.oc.Prompts[0], desc) || !strings.Contains(s.oc.Prompts[0], "Dateien im Eingang: a.csv, b.xlsx") {
 		t.Fatalf("prompts %v", s.oc.Prompts)
 	}
 	if d := s.oc.Sessions[0].Location.Directory; d != "/workspace/auswertung" {

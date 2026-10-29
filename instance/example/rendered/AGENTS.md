@@ -39,6 +39,7 @@ Only when these tools are offered; without them, say you cannot see rooms or boo
 - After a finished answer, offer 2 to 3 fitting next steps in one short last line (e.g. store as PDF when `workspace_md_to_pdf` is offered, go deeper, done). Not with the `question` tool; `question` only for real ambiguity. Subagents never ask.
 
 ## Uploaded files
+- For literal handwriting or scanned-text transcription, use `workspace_handwriting_to_text` when offered, rather than image_view or a guessed reading. Copy the source into the project first. PDFs require an explicit `options.page` (1-based); process every requested page separately in order. Read returned text and metadata, report partial results and keep [unlesbar]. Do not silently correct or summarize. `complete` confirms processing, not verified accuracy; check names and numbers against the original. Without the tool, report that handwriting transcription is unavailable here.
 - Chat uploads sit under `/tmp/opencode/uploads/<id>/` and vanish on restart. Copy them to `inbox/` first, then read from there.
 - Read PDF and text with the `read` tool; xlsx and docx with Python. Office files do not reach the model directly.
 - When the tool `workspace_image_view` is offered, look at images (PNG, JPG, WebP, GIF) with it (`path` in the project, `question`), never with `read`, and never claim you cannot see images; without it, say you cannot look at images here. An image pasted straight into the chat does not reach the model: ask the person to upload it as a file, copy it to `inbox/`, then `workspace_image_view`.

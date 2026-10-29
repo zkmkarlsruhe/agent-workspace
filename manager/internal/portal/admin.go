@@ -36,13 +36,13 @@ func init() {
 }
 
 func (s *Server) isAdmin(id Identity) bool {
-	return (s.admin != nil || s.identityGuard != nil) && s.adminGroup != "" && slices.Contains(id.Groups, s.adminGroup)
+	return (s.admin != nil || s.identityGuard != nil || s.taskAssistants != nil) && s.adminGroup != "" && slices.Contains(id.Groups, s.adminGroup)
 }
 
 // adminRoutes: everyone outside the admin group gets the plain 404 page, as
 // for a path that does not exist.
 func (s *Server) adminRoutes(page func(string, func(http.ResponseWriter, *http.Request, Identity))) {
-	if (s.admin == nil && s.identityGuard == nil) || s.adminGroup == "" {
+	if (s.admin == nil && s.identityGuard == nil && s.taskAssistants == nil) || s.adminGroup == "" {
 		return
 	}
 	a := func(pattern string, h func(http.ResponseWriter, *http.Request, Identity)) {
@@ -65,6 +65,7 @@ func (s *Server) adminRoutes(page func(string, func(http.ResponseWriter, *http.R
 		a("POST /admin/identity/{uid}/release", s.adminIdentityRelease)
 	}
 	s.feedbackAdminRoutes(a)
+	s.assistantAdminRoutes(a)
 }
 
 // day parses ?<key>=JJJJ-MM-TT as a Berlin day; def if missing or invalid.

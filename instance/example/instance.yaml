@@ -6,18 +6,25 @@
 # Replace example endpoints; keep credentials in manager/LiteLLM secrets.
 schema: 1
 timezone: Europe/Berlin
+
 # Local estimates in EUR; prices: {} disables chat estimates. Zero disables each flat charge.
 accounting:
   upstream_cost_currency: none
-  usd_per_eur: 1.10 # Fixed USD display rate; upstream billing remains EUR.
+  usd_per_eur: 1.1
   largest_context: 262144
   max_output_tokens: 32768
   prices:
-    standard: {input: 0.60, output: 3.60}
-    fast: {input: 0.10, output: 0.30}
-    thorough: {input: 0.014, output: 1.14}
-  embedding_eur_per_million: 0 # Unknown until configured.
-  image_eur: 0.10
+    standard:
+      input: 0.6
+      output: 3.6
+    fast:
+      input: 0.1
+      output: 0.3
+    thorough:
+      input: 0.014
+      output: 1.14
+  embedding_eur_per_million: 0
+  image_eur: 0.1
   mcp_eur: 0.01
   toolbox_eur: 0.02
   search_eur: 0.005
@@ -29,6 +36,10 @@ capabilities:
   project_default: [workspace-knowledge, web-research]
   legacy_default: global
 integrations:
+  freecad: true
+  knowledge: true
+  file-tools: true
+  office: true
   evaluation: true
   feedback: true
   images: true
@@ -39,6 +50,9 @@ integrations:
   workspace-style: true
   workspace-rooms: true
 integration_grants:
+  freecad: ["workspace:read", "workspace:write"]
+  file-tools: ["workspace:read", "workspace:write"]
+  office: ["nextcloud:live-edit"]
   evaluation: ["transcripts:read", "llm.background"]
   images: ["workspace:read", "workspace:write", "llm.user"]
   nextcloud: ["workspace:read", "workspace:write"]
@@ -56,8 +70,12 @@ values:
   recipient: support
   support_url: https://example.org/support
   support_label: support
+  directory_url: https://directory.example.org/profile
   website: example.org
   api_host: models.example.org
+  nextcloud_host: cloud.example.org
+  rooms_host: rooms.example.org
+  bikes_host: bikes.example.org
   domain: apps.example.org
   export_prefix: workspace-data-
   profile_marker: agent-workspace
@@ -65,13 +83,9 @@ values:
   config_file: catalog.json
   catalog_mount: /opt/workspace/catalog
   asset_root: /opt/workspace
+  nextcloud_root: Agent Workspace
   search_user_agent: Workspace-Research/1.0 (+https://apps.example.org/bot; support@example.org)
   central_client: workspace-manager
-  directory_url: https://directory.example.org/profile
-  nextcloud_host: cloud.example.org
-  rooms_host: rooms.example.org
-  bikes_host: bikes.example.org
-  nextcloud_root: Agent Workspace
   room_team: management@example.org
   city: the local timezone
 folders:
@@ -186,7 +200,7 @@ artifacts:
         "servers": {
     [[if-global-tools]]
           "[[mcp_server]]": { "type": "remote", "url": "http://llm-gw:4000/mcp/[[mcp_server]]", "oauth": false, "codemode": false,
-            "timeout": { "startup": 10000, "catalog": 15000, "execution": 60000 } }
+            "timeout": { "startup": 10000, "catalog": 15000, "execution": 240000 } }
     [[end]]
         }
       },
@@ -287,6 +301,9 @@ artifacts:
     - After a finished answer, offer 2 to 3 fitting next steps in one short last line (e.g. store as PDF when `workspace_md_to_pdf` is offered, go deeper, done). Not with the `question` tool; `question` only for real ambiguity. Subagents never ask.
 
     ## Uploaded files
+    [[if:file-tools]]
+    - For literal handwriting or scanned-text transcription, use `workspace_handwriting_to_text` when offered, rather than image_view or a guessed reading. Copy the source into the project first. PDFs require an explicit `options.page` (1-based); process every requested page separately in order. Read returned text and metadata, report partial results and keep [unlesbar]. Do not silently correct or summarize. `complete` confirms processing, not verified accuracy; check names and numbers against the original. Without the tool, report that handwriting transcription is unavailable here.
+    [[end]]
     - Chat uploads sit under `/tmp/opencode/uploads/<id>/` and vanish on restart. Copy them to `[[folders.inbox]]/` first, then read from there.
     - Read PDF and text with the `read` tool; xlsx and docx with Python. Office files do not reach the model directly.
     [[if:images]]
@@ -476,29 +493,29 @@ copy:
     en: "searches the catalogue of the [[organization]] library for books and media, read only. Demo."
     de: "sucht im Katalog der [[organization]]-Bibliothek nach Büchern und Medien, nur lesend. Demo."
   providers_intro:
-    en: "In the chat you choose between three language models. If one fails, the [[organization]] AI service switches to a fallback."
-    de: "Im Chat wählst du zwischen drei Sprachmodellen. Fällt eines aus, springt der KI-Dienst des [[organization]] auf einen Ersatz um."
+    en: "Choose a model role configured by the operator."
+    de: "Wähle eine vom Betreiber konfigurierte Modellrolle."
   providers_standard:
-    en: "Qwen3.5-397B at IONOS in Berlin, for most tasks. Fallback: the same model at OVHcloud (France), then at GWDG in Göttingen."
-    de: "Qwen3.5-397B bei IONOS in Berlin, für die meisten Aufgaben. Ersatz: dasselbe Modell bei OVHcloud (Frankreich), dann bei der GWDG in Göttingen."
+    en: "Standard model for general tasks."
+    de: "Standardmodell für allgemeine Aufgaben."
   providers_fast:
-    en: "Mistral Small 24B at IONOS, for short, simple tasks; it also names projects and chats. Fallback: Gemma 4 31B at GWDG."
-    de: "Mistral Small 24B bei IONOS, für kurze, einfache Aufgaben; damit entstehen auch die Namen von Projekten und Chats. Ersatz: Gemma 4 31B bei der GWDG."
+    en: "Fast model for short tasks."
+    de: "Schnelles Modell für kurze Aufgaben."
   providers_thorough:
-    en: "DeepSeek-V4-Flash at GWDG in Göttingen. Fallback: the Standard model at IONOS."
-    de: "DeepSeek-V4-Flash bei der GWDG in Göttingen. Ersatz: das Standard-Modell bei IONOS."
+    en: "Thorough model for complex tasks."
+    de: "Gründliches Modell für komplexe Aufgaben."
   providers_images:
-    en: "Looking at images: the Standard model. Creating images: FLUX at GWDG, fallback FLUX at IONOS. Changing images: an image model at GWDG."
-    de: "Bilder ansehen: das Standard-Modell. Bilder erzeugen: FLUX bei der GWDG, Ersatz FLUX bei IONOS. Bilder verändern: ein Bildmodell der GWDG."
+    en: "Image models configured by the operator."
+    de: "Vom Betreiber konfigurierte Bildmodelle."
   pricing_method:
     en: "Prices are operator-configured estimates. Upstream cost currency: [[accounting.upstream_cost_currency]] (none means reported costs are not used). Conversion rate: [[accounting.usd_per_eur]] USD per EUR (0 means no rate is configured). Token estimates in EUR per million, input/output: [[accounting.prices]]."
     de: "Preise sind vom Betreiber konfigurierte Schätzwerte. Kostenwährung des Modelldienstes: [[accounting.upstream_cost_currency]] (none bedeutet, dass gemeldete Kosten nicht verwendet werden). Umrechnungskurs: [[accounting.usd_per_eur]] USD pro EUR (0 bedeutet, dass kein Kurs konfiguriert ist). Tokenschätzpreise in EUR pro Million, Eingabe/Ausgabe: [[accounting.prices]]."
   footprint_billing:
-    en: "GWDG models are not charged to [[organization]]; the amount is the market price of the same model."
-    de: "GWDG-Modelle werden [[organization]] nicht berechnet; der Betrag ist der Marktpreis desselben Modells."
+    en: "Costs are estimates based on operator configuration."
+    de: "Kosten sind Schätzungen anhand der Betreiberkonfiguration."
   footprint_rough:
-    en: "very rough estimate: no data on the model, values of Qwen3.5-397B times %s to times %s"
-    de: "sehr grobe Schätzung: keine Angaben zum Modell, Werte von Qwen3.5-397B mal %s bis mal %s"
+    en: "very rough estimate: reference values times %s to times %s"
+    de: "sehr grobe Schätzung: Referenzwerte mal %s bis mal %s"
   pricing:
     en: "That the cost ring in the chat shows dollars (converted at the fixed rate 1 EUR = 1.10 USD); billing is in euros."
     de: "Dass der Kosten-Ring im Chat Dollar zeigt (umgerechnet mit festem Kurs 1 EUR = 1,10 USD); abgerechnet wird in Euro."
@@ -512,8 +529,8 @@ copy:
     en: As long as [[name]] is a prototype, general chats are analysed by an AI for evaluation and then read by [[reviewer]] (see above).
     de: Solange [[name]] ein Prototyp ist, werden allgemeine Chats zur Auswertung von einer KI analysiert und anschließend von [[reviewer]] gelesen (siehe oben).
   providers:
-    en: 'All models run at providers in Europe: IONOS and GWDG in Germany, OVHcloud in France. No provider from the USA. The [[organization]] rules on AI and data protection in the [[organization]] wiki apply during the prototype too.'
-    de: 'Alle Modelle laufen bei Anbietern in Europa: IONOS und GWDG in Deutschland, OVHcloud in Frankreich. Kein Anbieter aus den USA. Die Regeln des [[organization]] zu KI und Datenschutz aus dem [[organization]]-Wiki gelten auch während des Prototyps.'
+    en: 'Requests go to the model endpoint configured by the operator. Ask the operator about its providers and data handling.'
+    de: 'Anfragen gehen an den vom Betreiber konfigurierten Modell-Endpunkt. Auskunft zu Anbietern und Datenverarbeitung gibt der Betreiber.'
 reference_hosts:
 - example.org
 - example-partner.org
@@ -664,6 +681,48 @@ assistants:
 
 # House catalog items; catalog include_instance opts into this layer.
 catalog:
-  - {"id": "rooms", "title": "Check rooms, bikes and events", "title_de": "Räume, Räder und Termine prüfen", "description": "The helper reads the house timeline, shows free meeting rooms and service bikes and your own bookings. It never books or cancels: it opens the booking page via a link or writes a mail to the team in charge for you to copy.", "description_de": "Der Helfer liest die Haus-Timeline, zeigt freie Besprechungsräume und Diensträder und deine eigenen Buchungen. Er bucht und storniert nie: er öffnet die Buchungsseite per Link oder schreibt eine Mail an das zuständige Team zum Kopieren.", "tier": "optional", "category": "organisation", "server": "workspace", "tools": ["house_events", "rooms_free", "bikes_free", "my_bookings"]}
-  - {"id": "workspace-knowledge", "kind": "mcp-central", "title": "Look things up in the Workspace wiki", "title_de": "Im Beispiel-Wiki nachsehen", "description": "The helper searches the Workspace wiki, the catalogue of works and example.org and names the source. Read only. Demo/test.", "description_de": "Der Helfer sucht im Beispiel-Wiki, im Werkverzeichnis und auf example.org und nennt die Quelle. Nur lesen. Demo/Test.", "tier": "optional", "category": "workspace-knowledge", "litellm": ["workspace_kb_wiki", "workspace_kb_werke", "workspace_kb_drupal"], "tools": ["workspace_wiki", "werke_wiki", "drupal", "search_workspace_wiki", "search_workspace_werke", "search_workspace_drupal"]}
-  - {"id": "library", "kind": "mcp-central", "title": "Find books and media", "title_de": "Bücher und Medien finden", "description": "The helper searches the catalogue of the Workspace library for books and media. Read only. Demo/test.", "description_de": "Der Helfer sucht im Katalog der Workspace-Bibliothek nach Büchern und Medien. Nur lesen. Demo/Test.", "tier": "optional", "category": "research", "litellm": ["opac"], "tools": ["catalog_search", "catalog_item"]}
+- id: rooms
+  title: Check rooms, bikes and events
+  title_de: Räume, Räder und Termine prüfen
+  description: 'The helper reads the house timeline, shows free meeting rooms and service bikes and your own bookings. It never books or cancels: it opens the booking page via a link or writes a mail to the team in charge for you to copy.'
+  description_de: 'Der Helfer liest die Haus-Timeline, zeigt freie Besprechungsräume und Diensträder und deine eigenen Buchungen. Er bucht und storniert nie: er öffnet die Buchungsseite per Link oder schreibt eine Mail an das zuständige Team zum Kopieren.'
+  tier: optional
+  category: organisation
+  server: workspace
+  tools:
+  - house_events
+  - rooms_free
+  - bikes_free
+  - my_bookings
+- id: workspace-knowledge
+  kind: mcp-central
+  title: Look things up in the Workspace wiki
+  title_de: Im Beispiel-Wiki nachsehen
+  description: The helper searches the Workspace wiki, the catalogue of works and example.org and names the source. Read only. Demo/test.
+  description_de: Der Helfer sucht im Beispiel-Wiki, im Werkverzeichnis und auf example.org und nennt die Quelle. Nur lesen. Demo/Test.
+  tier: optional
+  category: workspace-knowledge
+  litellm:
+  - workspace_kb_wiki
+  - workspace_kb_werke
+  - workspace_kb_drupal
+  tools:
+  - workspace_wiki
+  - werke_wiki
+  - drupal
+  - search_workspace_wiki
+  - search_workspace_werke
+  - search_workspace_drupal
+- id: library
+  kind: mcp-central
+  title: Find books and media
+  title_de: Bücher und Medien finden
+  description: The helper searches the catalogue of the Workspace library for books and media. Read only. Demo/test.
+  description_de: Der Helfer sucht im Katalog der Workspace-Bibliothek nach Büchern und Medien. Nur lesen. Demo/Test.
+  tier: optional
+  category: research
+  litellm:
+  - opac
+  tools:
+  - catalog_search
+  - catalog_item

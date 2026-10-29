@@ -33,6 +33,9 @@ func (s *Service) touchProject(ctx context.Context, uid, project string, t time.
 // then the item is pending. Idempotent: a moved project is no longer a project.
 func (s *Service) TrashIdle(ctx context.Context) {
 	now := s.now()
+	if err := s.st.PurgeAssistantGaps(ctx, now); err != nil {
+		s.log.WarnContext(ctx, "assistant gap retention failed", "err", err)
+	}
 	expired, err := s.st.ExpiredAssistantTrash(ctx, now)
 	if err != nil {
 		s.log.WarnContext(ctx, "support retention failed", "err", err)

@@ -9,6 +9,8 @@ import (
 	"net/http/httptest"
 	"testing"
 	"time"
+
+	"github.com/zkmkarlsruhe/agent-workspace/manager/internal/runtime"
 )
 
 // A failed start or readiness probe is an error and leaves no container.
@@ -48,5 +50,35 @@ func TestForcedStopWithDeadAPI(t *testing.T) {
 	e.s.Reap(ctx)
 	if e.s.Status(uid1).State != StateAbsent {
 		t.Fatal("forced stop skipped on a failed probe")
+	}
+}
+
+type failedStartCleanup struct {
+	runtime.Runtime
+	cancel  context.CancelFunc
+	t       *testing.T
+	removed bool
+}
+
+func (r *failedStartCleanup) Start(context.Context, string) error {
+	r.cancel()
+	return context.Canceled
+}
+func (r *failedStartCleanup) Remove(ctx context.Context, id string) error {
+	deadline, ok := ctx.Deadline()
+	if !ok || time.Until(deadline) > 10*time.Second || ctx.Err() != nil {
+		r.t.Fatal("failed start cleanup must survive request cancellation with a bounded deadline")
+	}
+	r.removed = true
+	return r.Runtime.Remove(ctx, id)
+}
+func TestFailedStartCleanupHasDeadlineAfterCancellation(t *testing.T) {
+	e := setup(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	probe := &failedStartCleanup{Runtime: e.rt, cancel: cancel, t: t}
+	e.s.rt = probe
+	if _, err := e.s.EnsureRunning(ctx, uid1); err == nil || !probe.removed {
+		t.Fatalf("err=%v removed=%v", err, probe.removed)
 	}
 }

@@ -37,7 +37,9 @@ type Spec struct {
 	// Tool is a person's tool container (D60): no network at all (Network and
 	// IP unset), tmpfs /tmp only, smaller limits. Portable shape: in Kubernetes
 	// a second container of the person's pod or an own pod on the same volume.
-	Tool bool
+	Tool    bool
+	Office  bool // private HTTP browser worker, no user mounts
+	FreeCAD bool // visible CAD session on the person network
 }
 
 type Container struct {

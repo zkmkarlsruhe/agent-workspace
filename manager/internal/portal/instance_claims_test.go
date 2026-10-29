@@ -5,11 +5,13 @@ package portal
 import (
 	"context"
 	"html"
+	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
 
 	"github.com/zkmkarlsruhe/agent-workspace/manager/internal/instance"
+	"github.com/zkmkarlsruhe/agent-workspace/manager/internal/testinstance"
 )
 
 func TestInstanceProviderClaims(t *testing.T) {
@@ -30,7 +32,7 @@ func TestInstanceProviderClaims(t *testing.T) {
 					wantStatus(t, w, 200)
 					body := html.UnescapeString(w.Body.String())
 					if name == "minimal" {
-						for _, claim := range []string{"Qwen", "Mistral", "DeepSeek", "FLUX", "GWDG", "IONOS", "OVHcloud", "No provider from the USA", "Kein Anbieter aus den USA", "Fallback:"} {
+						for _, claim := range []string{"private-provider-0", "private-provider-1", "private-provider-2", "private-provider-3", "private-provider-4", "private-provider-5", "private-provider-6", "No provider from the USA", "Kein Anbieter aus den USA", "Fallback:"} {
 							if strings.Contains(body, claim) {
 								t.Errorf("%s %s: unexpected %q", lang, path, claim)
 							}
@@ -40,9 +42,9 @@ func TestInstanceProviderClaims(t *testing.T) {
 						if !strings.Contains(body, d.CopyText("providers", lang)) {
 							t.Errorf("%s: missing provider copy", lang)
 						}
-						sentence := "Qwen3.5-397B at IONOS in Berlin, for most tasks. Fallback: the same model at OVHcloud (France), then at GWDG in Göttingen."
+						sentence := "Standard model for general tasks."
 						if lang == "de" {
-							sentence = "Qwen3.5-397B bei IONOS in Berlin, für die meisten Aufgaben. Ersatz: dasselbe Modell bei OVHcloud (Frankreich), dann bei der GWDG in Göttingen."
+							sentence = "Standardmodell für allgemeine Aufgaben."
 						}
 						if strings.Contains(body, sentence) != (name == "example") {
 							t.Errorf("%s: example model sentence mismatch", lang)
@@ -67,7 +69,7 @@ func TestHelpCapabilityClaims(t *testing.T) {
 			for _, id := range []string{"web-research", "md-to-pdf", "workspace-knowledge", "library", "rooms", "media"} {
 				ft.d.Catalog = append(ft.d.Catalog, Tool{ID: id})
 			}
-			h, err := New(Config{Backend: newFake(), Assets: os.DirFS("../../web"), Tools: ft, Capabilities: map[string]bool{"web": true, "image_view": true, "image_generate": true, "image_edit": true, "rooms": true}, Feedback: &fakeFeedback{},
+			h, err := New(Config{Backend: newFake(), Assets: os.DirFS("../../web"), Tools: ft, Capabilities: map[string]bool{"mcp-central": true, "web": true, "image_view": true, "image_generate": true, "image_edit": true, "rooms": true}, Feedback: &fakeFeedback{},
 				PDF: func(context.Context, []byte, string) ([]byte, error) { return nil, nil }})
 			if err != nil {
 				t.Fatal(err)
@@ -165,7 +167,7 @@ func TestHelpRequiresWiredServices(t *testing.T) {
 			if strings.Contains(body, tr(lang, "Create an image")) != generate {
 				t.Errorf("%s: generation availability", lang)
 			}
-			if strings.Contains(body, "FLUX") {
+			if strings.Contains(body, "private-provider-3") {
 				t.Errorf("%s: full image model description without all image services", lang)
 			}
 			old := tr(lang, "creates an image from your description or changes an existing one, only when you ask for it. It goes to <code>[[folders.results]]</code>.")
@@ -193,7 +195,7 @@ func TestOnboardingCapabilityClaims(t *testing.T) {
 			for _, id := range []string{"web-research", "docx", "xlsx", "charts", "md-to-pdf"} {
 				tools.d.Standard = append(tools.d.Standard, Tool{ID: id})
 			}
-			capabilities := map[string]bool{"web": true}
+			capabilities := map[string]bool{"mcp-central": true, "web": true}
 			h, err := New(Config{Backend: newFake(), Assets: os.DirFS("../../web"),
 				Onboarding: &fakeOnboarding{seen: map[string]bool{}}, Tools: tools, Capabilities: capabilities,
 				PDF: func(context.Context, []byte, string) ([]byte, error) { return nil, nil }})
@@ -232,5 +234,27 @@ func TestOnboardingCapabilityClaims(t *testing.T) {
 			tools.d.Standard = nil
 			check(false, false)
 		})
+	}
+}
+
+func TestRemoteCapabilitiesNeedBroker(t *testing.T) {
+	d, err := testinstance.Load("../../../instance/example/instance.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer instance.Select(d)()
+	ft := &fakeTools{d: ToolsPage{Catalog: []Tool{{ID: "workspace-knowledge", Remote: true}, {ID: "library", Remote: true}, {ID: "custom-remote", Remote: true}, {ID: "local"}}}}
+	for _, available := range []bool{false, true} {
+		s := &Server{tools: ft, capabilities: map[string]bool{"mcp-central": available}}
+		v := view{}
+		s.withCapabilities(httptest.NewRequest("GET", "/help", nil), Identity{}, &v)
+		for _, id := range []string{"workspace-knowledge", "library", "custom-remote"} {
+			if v.Capabilities[id] != available {
+				t.Fatalf("%s broker=%v: %v", id, available, v.Capabilities)
+			}
+		}
+		if !v.Capabilities["local"] {
+			t.Fatal("local tool hidden")
+		}
 	}
 }

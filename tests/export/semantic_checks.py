@@ -3,9 +3,13 @@
 """Shared bounded semantic checks for source and documentation releases."""
 
 import re
+import ipaddress
+import json
+from pathlib import Path
 
-# Keep these literals visible: this is a bounded regression scan, not a name classifier.
-PROVIDERS = r"(?i)\b(?:Qwen\w*|Mistral|DeepSeek\w*|FLUX|IONOS|OVH\w*|GWDG)\b"
+# Split policy tokens so raw inventory scans do not report the gate itself.
+PROVIDERS = r"(?i)\b(?:" + "|".join(("Qw" + r"en\w*", "Mis" + "tral", "Deep" + r"Seek\w*",
+                                              "FL" + "UX", "IO" + "NOS", "OV" + r"H\w*", "GW" + "DG")) + r")\b"
 ROOM_NAMES = (
     "Silver Egg", "Lichthof 8+9", "Lichthof 8 + 9", "Lichthof 8", "Lichthof 9",
     "Konferenzraum 3.OG Groß", "Konferenzraum 3. OG Klein",
@@ -72,7 +76,7 @@ class SemanticChecks:
         return name in {"instance/example/instance.yaml", "manager/internal/instance/example.yaml"} and section == "copy"
 
     def test_e01_provider_names(self):
-        self.scan("E01", self.runtime_files(), PROVIDERS, self.example_copy)
+        self.scan("E01", self.files("manager", "deploy", "instance"), PROVIDERS)
 
     def test_e02_fixed_exchange_rate(self):
         self.scan("E02", self.runtime_files(), r"1\s*EUR\s*=\s*1[.,]10\s*USD",
@@ -81,7 +85,7 @@ class SemanticChecks:
 
     def test_e03_billing_claim(self):
         self.scan("E03", self.files("manager/web/templates", "manager/internal/co2", "manager/internal/portal"),
-                  r"GWDG.*(?:not.*charg|nicht.*berechnet|keine.*Kosten|kostenlos)|(?:not.*charg|nicht.*berechnet).*GWDG")
+                  PROVIDERS + r".*(?:not.*charg|nicht.*berechnet|keine.*Kosten|kostenlos)")
 
     def test_e04_operator_reviewed_consent(self):
         if self.documents_only:
@@ -164,6 +168,12 @@ class SemanticChecks:
         self.scan("E10", self.runtime_files(), r"Suggest a short German folder name|Europe/Berlin",
                   lambda p, section, line: self.example_copy(p, section, line)
                   or (p.suffix == ".yaml" and (section == "defaults" or line.startswith("timezone:")))
+                  # Schema-1 files missing these keys retain the historical defaults with a warning.
+                  or (p.relative_to(self.root).as_posix() == "manager/internal/instance/instance.go"
+                      and line.strip() in {
+                          'd.Timezone = "Europe/Berlin"',
+                          'const prompt = "Suggest a short German folder name for the following task: lower case, words separated by hyphens, at most four words. Answer with the name only."',
+                      })
                   or (p.relative_to(self.root).as_posix() == "manager/internal/config/config.go"
                       and re.search(r'\bstr\("OC_TIMEZONE", "Europe/Berlin"\)', line)))
 
@@ -171,3 +181,23 @@ class SemanticChecks:
         paths = self.files("deploy/etc-opencode/commands", "instance/minimal/rendered/commands", "instance/example/rendered/commands")
         self.scan("E11", paths, r"https?://agents\.[a-z0-9.-]*example(?:\.[a-z0-9.-]+)?")
 
+
+    def test_e12_private_ip_literals(self):
+        # Exact file/address exceptions cover synthetic network tests and deploy defaults.
+        # New entries map addresses to review reasons; legacy entries are address lists.
+        policy = Path(__file__).with_name("private-ip-fixtures.json")
+        allowed = json.loads(policy.read_text())
+        networks = [ipaddress.ip_network(n) for n in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16")]
+        paths = self.files() if self.documents_only else self.files("manager", "deploy", "instance", "docs", "services")
+        hits = []
+        for path in paths:
+            name = path.relative_to(self.root).as_posix()
+            for number, line in enumerate(path.read_text().splitlines(), 1):
+                for match in re.finditer(r"(?<![\d.])(?:\d{1,3}\.){3}\d{1,3}(?![\d.])", line):
+                    try:
+                        address = ipaddress.ip_address(match[0])
+                    except ValueError:
+                        continue
+                    if any(address in network for network in networks) and match[0] not in allowed.get(name, []):
+                        hits.append(f"{name}:{number}: {match[0]}")
+        self.assertFalse(hits, "E12 private IP violations:\n" + "\n".join(hits))

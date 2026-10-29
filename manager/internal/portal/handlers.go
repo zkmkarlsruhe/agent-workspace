@@ -464,8 +464,9 @@ func (s *Server) openChat(w http.ResponseWriter, r *http.Request, id Identity, p
 // --- Project-Detail ---
 
 type detailData struct {
-	FixedName    bool
-	Capabilities []Tool
+	GapCollection bool
+	FixedName     bool
+	Capabilities  []Tool
 	ProjectDetail
 	Results   []*treeNode // regular files below results/, Name = path below results/
 	Inbox     []*treeNode // the same for inbox/
@@ -596,6 +597,7 @@ func (s *Server) loadDetail(r *http.Request, uid, name string) (detailData, erro
 	slices.SortStableFunc(p.ChatList, func(a, b Chat) int { return b.Updated.Compare(a.Updated) }) // newest first
 	d := detailData{ProjectDetail: p, MaxUpload: s.maxUp, Latest: latestChat(p.ChatList), Last: p.LastActivity}
 	if def, ok := instance.Current().Assistant(p.Assistant.ID); ok {
+		d.GapCollection = def.GapCollection
 		d.FixedName = !p.Isolated && def.ProjectMode == "shared"
 	}
 	if d.Last.IsZero() {

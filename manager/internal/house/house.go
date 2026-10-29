@@ -54,6 +54,8 @@ type Service struct {
 	// LoginFor maps an Authentik username to the Nextcloud account the person
 	// must connect; nil = the same name. Compared case-insensitively.
 	LoginFor func(username string) string
+	// Invalidate closes browser sessions after the stored connection is made unusable.
+	Invalidate func(context.Context, string, string) error
 
 	// PollEvery is the poll interval of Login Flow v2 (2 s, docs/adr/README.md §3.3.5).
 	PollEvery time.Duration
@@ -171,9 +173,19 @@ func (s *Service) Creds(ctx context.Context, uid, id string) (user, login, passw
 // MarkExpired records a 401 from the service; the portal then shows
 // "Verbindung abgelaufen" until the person reconnects.
 func (s *Service) MarkExpired(ctx context.Context, uid, id string) {
-	if err := s.Store.ConnectionUsed(ctx, uid, id, s.now(), true); err != nil {
+	if err := s.invalidate(ctx, uid, id); err != nil {
 		s.Log.WarnContext(ctx, "house: mark expired", "uid", uid, "service", id, "err", err)
 	}
+}
+
+func (s *Service) invalidate(ctx context.Context, uid, id string) error {
+	if err := s.Store.ConnectionUsed(ctx, uid, id, s.now(), true); err != nil {
+		return err
+	}
+	if s.Invalidate != nil {
+		return s.Invalidate(ctx, uid, id)
+	}
+	return nil
 }
 
 // Status lists every configured service for the person.
@@ -362,6 +374,10 @@ func (s *Service) finish(ctx context.Context, f *Flow, h config.HouseService, ui
 		s.revokeOrQueue(ctx, h, uid, sec)
 		return FlowMismatch
 	}
+	if err := s.invalidate(ctx, uid, h.ID); err != nil {
+		s.revokeOrQueue(ctx, h, uid, sec)
+		return FlowFailed
+	}
 	if _, old, err := s.load(ctx, uid, h.ID); err == nil {
 		// reconnect: the previous app password must not stay valid
 		s.revokeOrQueue(ctx, h, uid, old)
@@ -508,6 +524,9 @@ func (s *Service) Disconnect(ctx context.Context, uid, id string) error {
 	}
 	delete(s.flows, uid+"|"+id)
 	s.mu.Unlock()
+	if err := s.invalidate(ctx, uid, id); err != nil {
+		return err
+	}
 	_, sec, err := s.load(ctx, uid, id)
 	switch {
 	case errors.Is(err, ErrNotConnected):

@@ -78,11 +78,6 @@ var (
 		"GET /v1/models":            "",
 		"POST /v1/embeddings":       "embedding",
 	}
-	// top-level body keys that would steer LiteLLM spend, routing or credentials
-	dropKeys = []string{"user", "metadata", "litellm_metadata", "litellm_session_id", "litellm_trace_id", "tags",
-		"fallbacks", "context_window_fallbacks", "num_retries", "timeout", "mock_response", "mock_tool_calls",
-		"mock_testing_fallbacks", "caching", "cache", "guardrails", "spend_logs_metadata", "api_base", "base_url",
-		"api_key", "api_version"}
 )
 
 type reqKey struct{}
@@ -107,7 +102,9 @@ func dispatched(ctx context.Context, sent *atomic.Bool) context.Context {
 func unanswered(e *store.UsageEvent, sent bool, a instance.Accounting) {
 	if sent && e.Capability == "llm" && e.CostEUR == nil && len(a.Prices) > 0 {
 		c := a.ReserveEUR()
-		e.CostEUR, e.CostSource = &c, "estimate"
+		if validCostEUR(c) {
+			e.CostEUR, e.CostSource = &c, "estimate"
+		}
 	}
 }
 
@@ -204,6 +201,12 @@ func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			oaiError(w, http.StatusBadRequest, german("Invalid JSON."), "invalid_request_error", false)
 			return
 		}
+		models := instance.Current().Models
+		// Assistant variants use the same upstream model ID as their configured role.
+		if g.Flavor == "openai" && (model == "" || (model != models.Default && model != models.Small && model != models.Thorough)) {
+			oaiError(w, http.StatusBadRequest, "Model is not configured.", "invalid_request_error", false)
+			return
+		}
 	}
 	if capability != "" {
 		id, _ := uuid.NewV7()
@@ -224,23 +227,30 @@ func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // call (chat) gets one choice and at most maxOutTokens output. It returns
 // the model for metering. Both flavors use the same spec-defined token bounds.
 func normalize(b []byte, chat bool, maxOutTokens int) ([]byte, string, error) {
-	if len(bytes.TrimSpace(b)) == 0 {
-		return b, "", nil
-	}
 	var m map[string]json.RawMessage
 	if err := json.Unmarshal(b, &m); err != nil {
 		return nil, "", err
 	}
-	for _, k := range dropKeys {
-		delete(m, k)
+	if m == nil {
+		return nil, "", errors.New("request must be an object")
+	}
+	for k := range m {
+		if !requestKey(k) {
+			delete(m, k)
+			slog.Debug("llm-gw: dropped request field", "key", k)
+		}
 	}
 	var model string
 	json.Unmarshal(m["model"], &model)
 	var stream bool
 	json.Unmarshal(m["stream"], &stream)
+	so := map[string]json.RawMessage{}
+	if raw, ok := m["stream_options"]; ok {
+		if err := json.Unmarshal(raw, &so); err != nil || so == nil {
+			return nil, "", errors.New("stream_options must be an object")
+		}
+	}
 	if stream {
-		so := map[string]json.RawMessage{}
-		json.Unmarshal(m["stream_options"], &so)
 		so["include_usage"] = json.RawMessage("true")
 		m["stream_options"], _ = json.Marshal(so)
 	}
@@ -257,6 +267,17 @@ func normalize(b []byte, chat bool, maxOutTokens int) ([]byte, string, error) {
 	}
 	out, err := json.Marshal(m)
 	return out, model, err
+}
+
+func requestKey(k string) bool {
+	switch k {
+	case "model", "messages", "input", "stream", "stream_options", "tools", "tool_choice",
+		"temperature", "top_p", "max_tokens", "max_completion_tokens", "stop", "response_format",
+		"seed", "reasoning_effort", "parallel_tool_calls", "logprobs", "top_logprobs",
+		"frequency_penalty", "presence_penalty", "logit_bias", "n", "encoding_format", "dimensions":
+		return true
+	}
+	return false
 }
 
 func (g *Gateway) rewrite(r *httputil.ProxyRequest) {
@@ -316,7 +337,7 @@ func (g *Gateway) modifyResponse(resp *http.Response) error {
 		g.responseUsage(&ev, resp)
 		ctx := resp.Request.Context()
 		resp.Body = &meter{rc: resp.Body, sse: strings.HasPrefix(resp.Header.Get("Content-Type"), "text/event-stream"),
-			accounting: g.accounting(), ev: ev, done: func(e store.UsageEvent) { g.record(ctx, e) }}
+			accounting: g.accounting(), flavor: g.Flavor, ev: ev, done: func(e store.UsageEvent) { g.record(ctx, e) }}
 	}
 	// Upstream diagnostics can expose credentials, routing and internal API bases.
 	for k := range resp.Header {
@@ -347,8 +368,8 @@ func (b responseBody) Read(p []byte) (int, error) {
 // LiteLLM call id (SpendLogs request_id).
 func (g *Gateway) record(lctx context.Context, e store.UsageEvent) {
 	e.End = time.Now()
-	estimate(&e)
 	charge(&e, g.accounting())
+	estimate(&e)
 	attrs := []any{"event_id", e.EventID, "capability", e.Capability, "model", e.Target, "status", e.Status,
 		"duration_ms", e.End.Sub(e.Start).Milliseconds(), "session_id", e.SessionID, "project", e.ProjectID,
 		"finish_reason", e.FinishReason, "cost_source", e.CostSource}
@@ -419,8 +440,12 @@ func upstreamCost(e *store.UsageEvent, raw float64, source string, a instance.Ac
 
 // charge labels missing billing explicitly. Partial chat usage uses configured limits for missing counters.
 func charge(e *store.UsageEvent, a instance.Accounting) {
+	rejectUsage(e, a)
 	if e.CostEUR != nil {
-		return
+		if validCostEUR(*e.CostEUR) || (*e.CostEUR == 0 && e.CostSource == "estimate") {
+			return
+		}
+		e.CostEUR = nil
 	}
 	e.CostSource = "unknown"
 	if e.Status/100 != 2 {
@@ -470,7 +495,28 @@ func charge(e *store.UsageEvent, a instance.Accounting) {
 	default:
 		return
 	}
-	e.CostEUR, e.CostSource = &c, "estimate"
+	if validCostEUR(c) || c == 0 {
+		e.CostEUR, e.CostSource = &c, "estimate"
+	}
+}
+
+// Impossible counters invalidate all reported usage and billing for the call.
+func rejectUsage(e *store.UsageEvent, a instance.Accounting) bool {
+	for _, bound := range []struct {
+		tokens *int64
+		limit  int64
+	}{{e.InTokens, a.LargestContext}, {e.OutTokens, int64(a.MaxOutputTokens)},
+		{e.CachedTokens, a.LargestContext}, {e.Reasoning, int64(a.MaxOutputTokens)}} {
+		if bound.tokens != nil && *bound.tokens > bound.limit {
+			e.InTokens, e.OutTokens, e.CachedTokens, e.Reasoning = nil, nil, nil, nil
+			e.CostEUR, e.CostSource = nil, "unknown"
+			if c := a.ReserveEUR(); validCostEUR(c) {
+				e.CostEUR, e.CostSource = &c, "estimate"
+			}
+			return true
+		}
+	}
+	return false
 }
 
 // estimate sets energy and CO2 for LLM calls with reported tokens. Unknown
@@ -498,14 +544,16 @@ const maxScan = 8 << 20
 // meter passes the body through untouched and records exactly one usage
 // event at EOF or close (client abort included).
 type meter struct {
-	accounting instance.Accounting
-	rc         io.ReadCloser
-	sse        bool
-	buf        bytes.Buffer
-	skip       bool // current SSE line exceeded maxScan
-	ev         store.UsageEvent
-	done       func(store.UsageEvent)
-	once       sync.Once
+	accounting   instance.Accounting
+	flavor       string
+	invalidUsage bool
+	rc           io.ReadCloser
+	sse          bool
+	buf          bytes.Buffer
+	skip         bool // current SSE line exceeded maxScan
+	ev           store.UsageEvent
+	done         func(store.UsageEvent)
+	once         sync.Once
 }
 
 func (m *meter) Read(p []byte) (int, error) {
@@ -591,7 +639,7 @@ func (m *meter) apply(data []byte) {
 			m.ev.FinishReason = *ch.FinishReason
 		}
 	}
-	if u := c.Usage; u != nil {
+	if u := c.Usage; u != nil && !m.invalidUsage {
 		for _, tokens := range []*int64{u.PromptTokens, u.CompletionToks, u.PromptDetails.Cached, u.CompletionDetails.Reasoning} {
 			if tokens != nil && *tokens < 0 {
 				*tokens = 0
@@ -599,7 +647,10 @@ func (m *meter) apply(data []byte) {
 		}
 		m.ev.InTokens, m.ev.OutTokens = u.PromptTokens, u.CompletionToks
 		m.ev.CachedTokens, m.ev.Reasoning = u.PromptDetails.Cached, u.CompletionDetails.Reasoning
-		if u.Cost != nil {
+		if m.invalidUsage = rejectUsage(&m.ev, m.accounting); m.invalidUsage {
+			return
+		}
+		if u.Cost != nil && m.flavor != "openai" {
 			upstreamCost(&m.ev, *u.Cost, "usage", m.accounting)
 		}
 	}
@@ -662,6 +713,26 @@ func (g *Gateway) chat(ctx context.Context, u store.User, session, model string,
 // ProfileCompletion is an internal, metered model call. Only manager-owned
 // conversations supply tools; there is no public forwarding endpoint.
 func (g *Gateway) AssistantCompletion(ctx context.Context, u store.User, session, model string, maxTokens int, messages any, tools any) (json.RawMessage, error) {
+	return g.assistantCompletion(ctx, u, session, model, maxTokens, messages, tools, nil)
+}
+
+func (g *Gateway) assistantCompletion(ctx context.Context, u store.User, session, model string, maxTokens int, messages any, tools any, settings map[string]any) (json.RawMessage, error) {
+	raw, err := g.completionResponse(ctx, u, session, model, maxTokens, messages, tools, settings)
+	if err != nil {
+		return nil, err
+	}
+	var r struct {
+		Choices []struct {
+			Message json.RawMessage `json:"message"`
+		} `json:"choices"`
+	}
+	if err := json.Unmarshal(raw, &r); err != nil || len(r.Choices) == 0 {
+		return nil, errors.Join(err, errors.New("complete: empty answer"))
+	}
+	return r.Choices[0].Message, nil
+}
+
+func (g *Gateway) completionResponse(ctx context.Context, u store.User, session, model string, maxTokens int, messages any, tools any, settings map[string]any) (json.RawMessage, error) {
 	if u.UID != store.ManagerUID {
 		release, err := g.Budget.Reserve(ctx, u.UID)
 		if err != nil {
@@ -670,7 +741,14 @@ func (g *Gateway) AssistantCompletion(ctx context.Context, u store.User, session
 		defer release() // after g.record below
 	}
 	maxTokens = min(max(maxTokens, 1), g.accounting().MaxOutputTokens)
-	request := map[string]any{"model": model, "max_tokens": maxTokens, "messages": messages}
+	request := map[string]any{"model": model, "messages": messages}
+	for key, value := range settings {
+		if g.Flavor == "openai" && !requestKey(key) {
+			continue
+		}
+		request[key] = value
+	}
+	request["max_tokens"] = maxTokens
 	if tools != nil {
 		request["tools"] = tools
 	}
@@ -697,7 +775,7 @@ func (g *Gateway) AssistantCompletion(ctx context.Context, u store.User, session
 	defer resp.Body.Close()
 	g.responseUsage(&ev, resp)
 	raw, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
-	m := &meter{ev: ev, accounting: g.accounting()}
+	m := &meter{ev: ev, accounting: g.accounting(), flavor: g.Flavor}
 	m.apply(raw)
 	g.record(ctx, m.ev)
 	if err != nil {
@@ -706,13 +784,5 @@ func (g *Gateway) AssistantCompletion(ctx context.Context, u store.User, session
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("complete: HTTP %d", resp.StatusCode)
 	}
-	var r struct {
-		Choices []struct {
-			Message json.RawMessage `json:"message"`
-		} `json:"choices"`
-	}
-	if err := json.Unmarshal(raw, &r); err != nil || len(r.Choices) == 0 {
-		return nil, errors.Join(err, errors.New("complete: empty answer"))
-	}
-	return r.Choices[0].Message, nil
+	return raw, nil
 }

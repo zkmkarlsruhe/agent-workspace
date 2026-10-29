@@ -32,12 +32,58 @@
   },
   {
     "schema": 1,
+    "name": "file-tools",
+    "version": "0.1.0",
+    "runs": "builtin",
+    "tools": [
+      "background_remove",
+      "raster_to_vector",
+      "svg_create",
+      "svg_edit",
+      "image_transform",
+      "pdf_to_text",
+      "handwriting_to_text"
+    ],
+    "scopes": [
+      "workspace:read",
+      "workspace:write"
+    ],
+    "health": "optional",
+    "requires_opencode": ">=2.2.0 <2.3"
+  },
+  {
+    "schema": 1,
+    "name": "freecad",
+    "version": "0.1.0",
+    "runs": "builtin",
+    "tools": [
+      "freecad_open",
+      "freecad_state",
+      "freecad_document",
+      "freecad_execute",
+      "freecad_output",
+      "freecad_save",
+      "freecad_export",
+      "freecad_view",
+      "freecad_close"
+    ],
+    "scopes": [
+      "workspace:read",
+      "workspace:write"
+    ],
+    "holds_personal_data": false,
+    "health": "optional",
+    "requires_opencode": ">=2.2.0 <2.3"
+  },
+  {
+    "schema": 1,
     "name": "images",
     "version": "0.1.0",
     "runs": "builtin",
     "tools": [
       "image_generate",
-      "image_view"
+      "image_view",
+      "image_edit"
     ],
     "scopes": [
       "workspace:read",
@@ -45,6 +91,36 @@
       "llm.user"
     ],
     "health": "optional",
+    "requires_opencode": ">=2.2.0 <2.3"
+  },
+  {
+    "schema": 1,
+    "name": "knowledge",
+    "version": "0.1.0",
+    "runs": "builtin",
+    "holds_personal_data": true,
+    "portal": [
+      {
+        "path": "/knowledge",
+        "roles": [
+          "user"
+        ]
+      },
+      {
+        "path": "/teams",
+        "roles": [
+          "user"
+        ]
+      }
+    ],
+    "health": "optional",
+    "tools": [
+      "knowledge_list",
+      "knowledge_search",
+      "knowledge_read",
+      "knowledge_create",
+      "knowledge_update"
+    ],
     "requires_opencode": ">=2.2.0 <2.3"
   },
   {
@@ -66,6 +142,31 @@
     "holds_personal_data": true,
     "health": "optional",
     "requires_opencode": ">=2.2.0 <2.3"
+  },
+  {
+    "schema": 1,
+    "name": "office",
+    "version": "0.1.0",
+    "runs": "builtin",
+    "tools": [
+      "office_status",
+      "office_documents",
+      "office_open",
+      "office_read",
+      "office_find",
+      "office_capture",
+      "office_replace",
+      "office_close"
+    ],
+    "scopes": [
+      "nextcloud:live-edit"
+    ],
+    "holds_personal_data": true,
+    "health": "optional",
+    "requires_opencode": ">=2.2.0 <2.3",
+    "requires": [
+      "nextcloud"
+    ]
   },
   {
     "schema": 1,

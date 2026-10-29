@@ -70,7 +70,17 @@ func TestLayoutSnapshots(t *testing.T) {
 		t.Fatal(err)
 	}
 	extra := map[string]any{
+		"teams":                 teamsData{},
+		"team":                  teamsData{Team: store.Team{ID: "team", Name: "Exhibition", Role: "admin", Admins: 1, Revision: 1}},
+		"knowledge":             knowledgeData{},
+		"knowledge-collection":  knowledgeData{Collection: store.KnowledgeCollection{ID: "kb", Title: "Team knowledge", Role: "admin", Writable: true}},
+		"knowledge-page":        knowledgeData{Collection: store.KnowledgeCollection{ID: "kb", Title: "Team knowledge", Writable: true}, Page: store.KnowledgePage{ID: "page", Title: "A page", Body: "Text"}},
 		"identity-blocked":      nil,
+		"admin-assistants":      []assistantEditorData{},
+		"admin-assistant":       assistantEditorData{New: true, Fields: assistantFields(assistants.Definition{})},
+		"assistant-test":        assistantTestData{Definition: assistants.Definition{ID: "support", Title: "Support"}, History: "[]", AvailableGroups: []string{"staff"}},
+		"assistant-gaps":        assistantGapsData{Project: store.Project{Folder: "report"}, CanSubmit: true},
+		"admin-assistant-gaps":  []store.AssistantGap{},
 		"connection":            connectionData{Connection: Connection{ID: "nextcloud", Title: "Nextcloud", Flow: Flow{State: FlowPending, LoginURL: "https://cloud.example/login"}}},
 		"support-chat":          map[string]any{"Project": map[string]any{"Folder": "exhibition-research", "Assistant": map[string]any{"ID": "research", "Version": 2, "Hash": strings.Repeat("a", 64)}}, "Session": map[string]any{"ID": "ses_fixture", "Revision": 1}, "Messages": []map[string]any{{"Role": "user", "Content": "Compare the exhibition visitor numbers."}, {"Role": "assistant", "Content": "The report contains monthly totals. Which months should I compare?"}}, "Evaluation": true, "Prompt": "Compare January and February."},
 		"admin-feedback":        adminFeedbackData{Rows: []store.Feedback{{ID: 1, At: time.Now(), Username: "anna", DisplayName: "Anna Beispiel", Kind: "idea", Text: "Keep column headings visible in long reports.", Project: "report"}}},
@@ -96,10 +106,19 @@ func TestLayoutSnapshots(t *testing.T) {
 		if name == "assistants" {
 			nav = "assistants"
 		}
+		if strings.HasPrefix(name, "knowledge") {
+			nav = "knowledge"
+		}
+		if name == "teams" || name == "team" {
+			nav = "teams"
+		}
 		if strings.HasPrefix(name, "admin") {
 			nav = "admin"
 		}
-		v := view{User: anna, Lang: "de", Nav: nav, Settings: true, Conns: true, Tools: true, Admin: true, TaskAssistants: true, D: data}
+		if strings.HasPrefix(name, "admin-assistant") || name == "assistant-test" {
+			nav = "assistant-admin"
+		}
+		v := view{User: anna, Lang: "de", Nav: nav, Settings: true, Conns: true, Tools: true, Admin: true, TaskAssistants: true, Knowledge: true, KnowledgeWrite: true, D: data}
 		page := name
 		if name == "start-populated" {
 			page = "start"

@@ -20,7 +20,7 @@ func TestUsageRawBilling(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Recreate the pre-migration schema with an existing ledger row.
-	if _, err := s.db.Exec(`ALTER TABLE usage_events DROP COLUMN raw_cost;
+	if _, err := s.db.Exec(`DROP TRIGGER users_incarnation; ALTER TABLE users DROP COLUMN incarnation; DROP TABLE project_knowledge; DROP TABLE knowledge_revisions; DROP TABLE knowledge_pages; DROP TABLE knowledge_collections; DROP TABLE knowledge_search; DROP TABLE team_audit; DROP TABLE team_members; DROP TABLE teams; DROP TABLE assistant_config; DROP TABLE assistant_revisions; DROP TABLE assistant_gaps; ALTER TABLE usage_events DROP COLUMN raw_cost;
  ALTER TABLE usage_events DROP COLUMN raw_cost_unit;
  ALTER TABLE usage_events DROP COLUMN raw_cost_source;
  PRAGMA user_version = 26;`); err != nil {

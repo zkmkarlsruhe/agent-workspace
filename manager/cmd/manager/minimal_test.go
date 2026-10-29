@@ -394,7 +394,7 @@ func TestRefInstanceMinimal(t *testing.T) {
 var minimalForbidden = []*regexp.Regexp{
 	regexp.MustCompile(`(?i)privatebrand|privateteam|privatefont`),
 	regexp.MustCompile(`(?i)\bprivateperson\b`),
-	regexp.MustCompile(`\b(\x{65}\x{69}\x{6e}\x{67}\x{61}\x{6e}\x{67}|\x{65}\x{72}\x{67}\x{65}\x{62}\x{6e}\x{69}\x{73}|\x{61}\x{72}\x{62}\x{65}\x{69}\x{74})\b`),
+	regexp.MustCompile(`\b(privatefolder0|privatefolder1|privatefolder2)\b`),
 }
 
 func minimalNeutral(t *testing.T, source, body string) {

@@ -122,7 +122,14 @@ type Service struct {
 	run    map[string]*running      // guarded by mu
 	starts map[string]*startState   // background starts from the portal, guarded by mu
 	// toolRuns holds one place per tool container (uid/toolbox): runs take turns; guarded by mu
-	toolRuns map[string]chan struct{}
+	toolRuns       map[string]chan struct{}
+	cad            sync.Map
+	cadURL         func(int) string
+	cadTransport   http.RoundTripper
+	FreeCADAllowed func(context.Context, string, string) bool
+	office         sync.Map         // uid -> *officeSlot, independent of the account lock
+	officeURL      func(int) string // tests override the private worker address
+	OfficeCreds    func(context.Context, string) (login, password string, err error)
 	// creating counts container creates in flight, so concurrent starts of
 	// different people cannot overshoot MaxRunning; guarded by mu
 	creating int
@@ -133,6 +140,7 @@ func New(cfg config.Config, rt runtime.Runtime, st *store.Store, log *slog.Logge
 	return &Service{
 		background: ctx, cancel: cancel,
 		cfg: cfg, rt: rt, st: st, log: log,
+		cadTransport:  &http.Transport{ResponseHeaderTimeout: 40 * time.Second},
 		http:          &http.Client{Timeout: 30 * time.Second},
 		now:           time.Now,
 		ws:            "/workspace",
@@ -150,13 +158,53 @@ func New(cfg config.Config, rt runtime.Runtime, st *store.Store, log *slog.Logge
 	}
 }
 
-// Close cancels and waits for background starts and container checks. Callers
-// must stop serving requests and join externally started loops before Close.
+// Close cancels and joins admitted lifecycle work before removing application workers.
+// Cancelled starts may skip writes; no admitted write may outlive Close.
+// Callers must stop serving requests and join externally started loops before Close.
 func (s *Service) Close() {
 	s.mu.Lock()
 	s.cancel()
 	s.mu.Unlock()
 	s.workers.Wait()
+	s.closeAllCAD()
+	var cleanup sync.WaitGroup
+	s.office.Range(func(key, value any) bool {
+		slot := value.(*officeSlot)
+		slot.Lock()
+		if slot.worker == nil {
+			slot.Unlock()
+			return true
+		}
+		cleanup.Go(func() {
+			defer slot.Unlock()
+			if err := s.closeOffice(context.Background(), slot); err != nil {
+				s.log.Warn("office shutdown failed", "uid", key.(string), "err", err)
+			}
+		})
+		return true
+	})
+	cleanup.Wait()
+}
+
+// beginWork serializes admission with Close, including handlers that outlive HTTP shutdown.
+func (s *Service) beginWork(ctx context.Context) (context.Context, func(), bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.background.Err() != nil || ctx.Err() != nil {
+		return ctx, nil, false
+	}
+	s.workers.Add(1)
+	ctx, cancel := context.WithCancel(ctx)
+	stop := context.AfterFunc(s.background, cancel)
+	return ctx, func() { stop(); cancel(); s.workers.Done() }, true
+}
+
+func (s *Service) suspectAsync(uid string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.background.Err() == nil {
+		s.workers.Go(func() { s.Suspect(uid) })
+	}
 }
 
 // Password derives the OpenCode password of one container generation; it is
@@ -270,6 +318,11 @@ func (s *Service) StreamOpened(uid string) (done func()) {
 // gone. The lock comes first: a view taken before it may already belong to a
 // restarted generation or, after an account deletion, to the slot's next tenant.
 func (s *Service) Suspect(uid string) {
+	ctx, done, ok := s.beginWork(context.Background())
+	if !ok {
+		return
+	}
+	defer done()
 	l := s.lock(uid)
 	l.Lock()
 	defer l.Unlock()
@@ -277,8 +330,11 @@ func (s *Service) Suspect(uid string) {
 	if r == nil {
 		return
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
+	if ctx.Err() != nil {
+		return
+	}
 	s.dropIfGone(ctx, uid, r)
 }
 
@@ -354,6 +410,11 @@ func (s *Service) RunningUIDs() []string {
 // EnsureRunning starts the person's container if needed and waits for readiness.
 // Concurrent callers for the same person share one start via the per-person lock.
 func (s *Service) EnsureRunning(ctx context.Context, uid string) (Status, error) {
+	ctx, done, ok := s.beginWork(ctx)
+	if !ok {
+		return s.Status(uid), ErrNotRunning
+	}
+	defer done()
 	l := s.lock(uid)
 	l.Lock()
 	defer l.Unlock()
@@ -519,7 +580,9 @@ func (s *Service) start(ctx context.Context, u store.User) error {
 		err = s.waitReady(ctx, s.client(r))
 	}
 	if err != nil {
-		if rerr := s.rt.Remove(context.WithoutCancel(ctx), name); rerr != nil {
+		cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
+		defer cancel()
+		if rerr := s.rt.Remove(cleanup, name); rerr != nil {
 			err = errors.Join(err, fmt.Errorf("remove: %w", rerr))
 		}
 		s.log.ErrorContext(ctx, "container start failed", "op", op, "generation", gen, "duration_ms", time.Since(st).Milliseconds(), "err", err)
@@ -606,6 +669,11 @@ func (s *Service) waitReady(ctx context.Context, c *ocapi.Client) error {
 
 // Stop stops and removes the container. Data lives in the bind mounts only.
 func (s *Service) Stop(ctx context.Context, uid string) error {
+	ctx, done, ok := s.beginWork(ctx)
+	if !ok {
+		return ErrNotRunning
+	}
+	defer done()
 	l := s.lock(uid)
 	l.Lock()
 	defer l.Unlock()
@@ -613,6 +681,9 @@ func (s *Service) Stop(ctx context.Context, uid string) error {
 }
 
 func (s *Service) stopLocked(ctx context.Context, uid, reason string) error {
+	if err := s.closePersonCAD(ctx, uid, true); err != nil {
+		return err
+	}
 	r := s.get(uid)
 	slot := 0
 	if r != nil {
@@ -645,6 +716,11 @@ func (s *Service) stopLocked(ctx context.Context, uid, reason string) error {
 // Restart stops and starts with a new generation (new password, current
 // image), under one hold of the person's lock: nothing sees the gap.
 func (s *Service) Restart(ctx context.Context, uid string) (Status, error) {
+	ctx, done, ok := s.beginWork(ctx)
+	if !ok {
+		return s.Status(uid), ErrNotRunning
+	}
+	defer done()
 	l := s.lock(uid)
 	l.Lock()
 	defer l.Unlock()

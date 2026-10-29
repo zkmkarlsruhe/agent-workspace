@@ -30,10 +30,55 @@ class LicenseTest(unittest.TestCase):
             regenerated = Path(temp) / "report.md"
             subprocess.run([sys.executable, "-I", "-B", str(self.root / "scripts/license-report"),
                             "--go", os.environ.get("GO", shutil.which("go") or str(Path.home() / ".local/go/bin/go")),
-                            "--output", str(regenerated)], check=True)
+                            "--strict", "--output", str(regenerated)], check=True)
             before, after = report.read_text(), regenerated.read_text()
             self.assertEqual(before, after, "".join(difflib.unified_diff(
                 before.splitlines(True), after.splitlines(True), fromfile=str(report), tofile="regenerated")))
+
+    def test_python_services_inventory_fails_closed(self):
+        inventory = self.script()["python_services"]
+        rows = inventory(self.root)
+        self.assertEqual(len(rows), 9)
+        self.assertTrue(any(name == "CairoSVG" and "LGPL" in licence for _, name, _, licence in rows))
+        report = (self.root / "THIRD_PARTY_LICENSES.md").read_text()
+        for component in ("ghcr.io/linuxserver/freecad", "python:3.14-slim", "rembg", "pypdfium2"):
+            self.assertIn(component, report)
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            path = root / "services/new/requirements.txt"
+            path.parent.mkdir(parents=True)
+            path.write_text("unreviewed==1.0\n")
+            with self.assertRaisesRegex(ValueError, "unreviewed"):
+                inventory(root)
+
+    def test_unknown_base_is_listed_and_only_strict_cli_fails(self):
+        script = self.script()
+        original_read = Path.read_text
+        dockerfile = self.root / "services/freecad/Dockerfile"
+        def read(path, *args, **kwargs):
+            text = original_read(path, *args, **kwargs)
+            if path == dockerfile:
+                text += "\nFROM registry.example.org/unreviewed:1\n"
+            return text
+        with patch.object(Path, "read_text", read), patch("subprocess.check_output", side_effect=[
+                json.dumps({"Require": []}), ""]):
+            text = script["report"](self.root, "go")
+        self.assertIn("| registry.example.org/unreviewed | registry.example.org/unreviewed:1 | licence unknown, review required |", text)
+        for licence in ("GPL-3.0 (linuxserver.io image build files)", "LGPL-2.1 (FreeCAD)", "various (Ubuntu base)"):
+            self.assertIn(licence, text)
+        main = script["main"]
+        with tempfile.TemporaryDirectory() as temp:
+            output = Path(temp) / "report.md"
+            for flags in ([], ["--strict"]):
+                with patch.dict(main.__globals__, report=lambda *args: text):
+                    with patch.object(sys, "argv", ["license-report", "--output", str(output), *flags]):
+                        if flags:
+                            with self.assertRaises(SystemExit) as failure:
+                                main()
+                            self.assertEqual(failure.exception.code, 1)
+                        else:
+                            main()
+                self.assertEqual(output.read_text(), text)
 
     def test_license_detection_fails_closed(self):
         detect = self.script()["detect"]

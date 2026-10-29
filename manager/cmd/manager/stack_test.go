@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -12,10 +13,11 @@ import (
 
 func TestStackCleanupWaitsForWriters(t *testing.T) {
 	started, finished, loopDone := make(chan struct{}), make(chan struct{}), make(chan struct{})
-	var root string
+	var root, catalogFile string
 	if !t.Run("stack", func(t *testing.T) {
 		s := newStack(t, "127.95")
 		root = s.cat.Dir
+		catalogFile = filepath.Join(filepath.Dir(root), "catalog.json")
 		afterStart := s.svc.AfterStart
 		s.svc.AfterStart = func(ctx context.Context, uid string) {
 			close(started)
@@ -23,13 +25,19 @@ func TestStackCleanupWaitsForWriters(t *testing.T) {
 			if ctx.Err() != context.Canceled {
 				t.Error("stack did not cancel the background start")
 			}
-			// Finish a catalog write during shutdown, before TempDir removes it.
+			// Cancellation may skip the write, but the hook must finish before TempDir cleanup.
 			if _, err := os.Stat(root); err != nil {
 				t.Errorf("catalog removed before start finished: %v", err)
 			}
-			afterStart(context.WithoutCancel(ctx), uid)
-			if _, err := os.Stat(filepath.Join(filepath.Dir(root), "catalog.json")); err != nil {
-				t.Errorf("catalog write during shutdown failed: %v", err)
+			afterStart(ctx, uid)
+			data, err := os.ReadFile(catalogFile)
+			if err != nil && !os.IsNotExist(err) {
+				t.Errorf("catalog write neither completed nor skipped: %v", err)
+			} else if err == nil && !json.Valid(data) {
+				t.Error("catalog write left incomplete JSON")
+			}
+			if _, err := os.Stat(root); err != nil {
+				t.Errorf("catalog removed while the hook was running: %v", err)
 			}
 			close(finished)
 		}
@@ -53,7 +61,10 @@ func TestStackCleanupWaitsForWriters(t *testing.T) {
 			t.Error("stack cleanup returned before a worker finished")
 		}
 	}
-	if _, err := os.Stat(root); !os.IsNotExist(err) {
-		t.Errorf("catalog temp directory remains: %v", err)
+	// Cleanup has called Close and joined both writers; neither can recreate these paths.
+	for _, path := range []string{root, catalogFile} {
+		if _, err := os.Stat(path); !os.IsNotExist(err) {
+			t.Errorf("catalog path remains after shutdown cleanup: %s: %v", path, err)
+		}
 	}
 }

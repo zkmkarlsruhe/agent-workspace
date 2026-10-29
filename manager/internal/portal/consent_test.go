@@ -12,13 +12,14 @@ import (
 func TestResume(t *testing.T) {
 	s := &Server{origin: "https://apps.example.org"}
 	for in, want := range map[string]string{
-		"":                      "/",
-		"/projects/new?x=1":     "/projects/new?x=1",
-		"//evil.example/":       "/",
-		"/\\evil.example/":      "/",
-		"/\t/evil.example/":     "/",
-		"/consent?next=/":       "/",
-		"https://evil.example/": "/",
+		"":                                "/",
+		"https://other.apps.example.org/": "/",
+		"/projects/new?x=1":               "/projects/new?x=1",
+		"//evil.example/":                 "/",
+		"/\\evil.example/":                "/",
+		"/\t/evil.example/":               "/",
+		"/consent?next=/":                 "/",
+		"https://evil.example/":           "/",
 		"https://alice.apps.example.org/server/x":     "https://alice.apps.example.org/server/x",
 		"https://a.b.apps.example.org/":               "/",
 		"https://alice.apps.example.org:444/":         "/",
@@ -28,7 +29,7 @@ func TestResume(t *testing.T) {
 		"javascript:alert(1)":                         "/",
 		"https://alice.apps.example.org/?a=b#session": "https://alice.apps.example.org/?a=b#session",
 	} {
-		if got := s.next(in); got != want {
+		if got := s.next(in, "alice"); got != want {
 			t.Errorf("weiter(%q) = %q, want %q", in, got, want)
 		}
 	}

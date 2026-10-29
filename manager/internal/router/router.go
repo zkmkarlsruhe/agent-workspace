@@ -35,6 +35,8 @@ type Backend interface {
 }
 
 type Router struct {
+	ToolTitles    func(context.Context, store.User, string) (map[string]string, error)
+	FreeCADTarget func(context.Context, string, string) (lifecycle.Target, bool)
 	RuntimeAccess func(context.Context, string) error
 	Lang          func(context.Context, string) (string, error)
 	Domain        string
@@ -204,6 +206,10 @@ func (rt *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	id.UID = u.UID
 	logx.Set(ctx, logx.Fields{Slot: u.Slot})
+	if m := cadHost.FindStringSubmatch(slug); m != nil {
+		rt.serveCAD(w, r, id.UID, m[1], host)
+		return
+	}
 	if u.Slug != slug { // unknown slug or another person's
 		rt.Log.DebugContext(ctx, "router: away", "reason", "slug mismatch", "slug", slug, "own_slug", u.Slug)
 		rt.away(w, r, upgrade)
@@ -263,6 +269,10 @@ func (rt *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer release()
+	if r.URL.Path == brandToolTitlesPath() {
+		rt.serveToolTitles(w, r.WithContext(ctx), u)
+		return
+	}
 	l := ""
 	if wantsHTML(r) {
 		l = rt.personLanguage(r, id.UID)

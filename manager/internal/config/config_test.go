@@ -384,3 +384,39 @@ func TestDayStartTimezones(t *testing.T) {
 		}
 	}
 }
+
+func TestOfficeRequiresPinnedImageAndNextcloud(t *testing.T) {
+	image := "bridge@sha256:" + strings.Repeat("a", 64)
+	for _, tc := range []struct {
+		image, cloud string
+		valid        bool
+	}{
+		{"", "", true},
+		{image, "https://cloud.example.org", true},
+		{"bridge:latest", "https://cloud.example.org", false},
+		{image, "", false},
+		{image, "http://cloud.example.org", false},
+		{image, "https://cloud.example.org/#fragment", false},
+	} {
+		_, err := load(map[string]string{"OC_OFFICE_IMAGE": tc.image, "OC_NEXTCLOUD_URL": tc.cloud})
+		if (err == nil) != tc.valid {
+			t.Fatalf("office=%q cloud=%q: %v", tc.image, tc.cloud, err)
+		}
+	}
+}
+
+func TestHandwritingModelOverride(t *testing.T) {
+	for _, value := range []string{"transcription-route", "-"} {
+		c, err := load(map[string]string{"OC_HANDWRITING_MODEL": value})
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := value
+		if value == "-" {
+			want = ""
+		}
+		if c.HandwritingModel != want {
+			t.Fatalf("model %q, want %q", c.HandwritingModel, want)
+		}
+	}
+}

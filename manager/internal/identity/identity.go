@@ -91,6 +91,20 @@ func (c Checker) FromRequest(r *http.Request) (Identity, error) {
 	h := r.Header
 	headers := c.Headers.WithDefaults()
 	subjectHeader := cmp.Or(c.SubjectHeader, "X-Authentik-Uid")
+	for _, name := range []string{headers.UID, headers.Username, headers.Email, headers.Name, headers.Groups, subjectHeader} {
+		if name == "-" {
+			continue
+		}
+		count := 0
+		for key, values := range h {
+			if strings.EqualFold(key, name) {
+				count += len(values)
+			}
+		}
+		if count > 1 {
+			return Identity{}, ErrInvalid
+		}
+	}
 	if len(h.Values(subjectHeader)) != 1 {
 		return Identity{}, ErrInvalid
 	}

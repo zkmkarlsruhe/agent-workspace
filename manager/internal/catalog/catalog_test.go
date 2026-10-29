@@ -23,6 +23,16 @@ import (
 	"github.com/zkmkarlsruhe/agent-workspace/manager/internal/ocapi"
 )
 
+func TestFileToolsExampleCatalog(t *testing.T) {
+	items, err := Load("../../../deploy/example/file-tools")
+	if err != nil || len(items) != 1 {
+		t.Fatalf("file-tools catalog: %v %v", items, err)
+	}
+	if items[0].Kind != KindMCP || items[0].ID != "file-tools" || len(items[0].Tools) != 7 {
+		t.Fatalf("file-tools catalog: %+v", items[0])
+	}
+}
+
 func TestLoad(t *testing.T) {
 	items, err := Load("testdata/catalog")
 	if err == nil || !strings.Contains(err.Error(), "kaputt") || !strings.Contains(err.Error(), "duplicate id minutes") ||

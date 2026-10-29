@@ -75,7 +75,7 @@ func TestMinimalCapabilitiesCopy(t *testing.T) {
 		w := do(t, h, req{path: "/tools", header: map[string]string{"Accept-Language": language}})
 		wantStatus(t, w, 200)
 		body := html.UnescapeString(w.Body.String())
-		if strings.Contains(strings.ToLower(body), "\x7a\x6b\x6d") {
+		if strings.Contains(strings.ToLower(body), "privatebrand") {
 			t.Fatalf("%s: minimal capabilities page contains Workspace branding", language)
 		}
 		want := "Choose extra abilities for your tasks, such as searching documents or working with tables."

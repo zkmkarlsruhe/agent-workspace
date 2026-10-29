@@ -1,5 +1,6 @@
 {{define "title"}}{{t "Help"}}{{end}}
 {{define "content"}}
+{{if .TaskAssistants}}<p><a href="/assistant-gaps">{{t "Knowledge gaps"}}</a></p>{{end}}
 <div class="page-head">
   <div>
     <h1>{{t "Help"}}</h1>
@@ -12,6 +13,7 @@
 {{template "prototype" .D}}
 
 <div class="faq">
+ {{if .Knowledge}}<details class="disclosure"><summary>{{t "How do I use personal and team knowledge?"}}</summary><div class="faq__answer"><p>{{t "Create a personal knowledge base under Knowledge, or create a team and a team knowledge base. Add pages or import Markdown. Select the knowledge base for a project, then ask the helper to search or explicitly update a page."}}</p><p><a href="/knowledge">{{t "Knowledge"}}</a> · <a href="/teams">{{t "Teams"}}</a></p></div></details>{{end}}
   <details class="disclosure">
     <summary>{{t "Where are my personal settings?"}}</summary>
     <div class="faq__answer"><p>{{if .Conns}}{{t "Open the menu under your name for About me & how I work, Usage, Connections (Nextcloud), Privacy and Delete account."}}{{else}}{{t "Open the menu under your name for About me & how I work, Usage, Privacy and Delete account."}}{{end}}</p></div>

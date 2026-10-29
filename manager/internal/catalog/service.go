@@ -554,3 +554,10 @@ func (s *Service) DeleteOwn(ctx context.Context, uid, id string) (Effect, error)
 
 func MountDir() string   { return instance.Value("catalog_mount") }
 func ConfigFile() string { return instance.ConfigFile() }
+
+// PendingReloads counts capability reloads waiting for an idle runtime or retry.
+func (s *Service) PendingReloads() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return len(s.pending)
+}

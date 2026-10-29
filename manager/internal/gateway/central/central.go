@@ -112,12 +112,19 @@ func (b litellmBroker) localName(up string, servers []string) string {
 
 func (litellmBroker) connect(ctx context.Context, endpoint, key, username string, servers []string, client *http.Client) (*sdk.ClientSession, error) {
 	h := http.Header{}
-	h.Set("Authorization", "Bearer "+key)
+	if key != "" {
+		h.Set("Authorization", "Bearer "+key)
+	}
 	h.Set("x-mcp-servers", strings.Join(servers, ","))
 	h.Set("x-litellm-end-user-id", username)
+	origin, err := url.Parse(endpoint)
+	if err != nil {
+		return nil, err
+	}
 	t := &sdk.StreamableClientTransport{
-		Endpoint:             endpoint,
-		HTTPClient:           &http.Client{Timeout: client.Timeout, Transport: upstreamRT{client.Transport, h}},
+		Endpoint: endpoint,
+		HTTPClient: &http.Client{Timeout: client.Timeout, Transport: upstreamRT{client.Transport, h, origin},
+			CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }},
 		MaxRetries:           -1, // never resend a billable call
 		DisableStandaloneSSE: true,
 		MaxEventSize:         maxUpstream,
@@ -323,11 +330,15 @@ func (s *Server) connect(ctx context.Context, u store.User, it catalog.Item) (*s
 
 // upstreamRT injects the manager's headers and caps every response body.
 type upstreamRT struct {
-	base http.RoundTripper
-	hdr  http.Header
+	base   http.RoundTripper
+	hdr    http.Header
+	origin *url.URL
 }
 
 func (t upstreamRT) RoundTrip(r *http.Request) (*http.Response, error) {
+	if t.origin == nil || r.URL.Scheme != t.origin.Scheme || r.URL.Host != t.origin.Host {
+		return nil, errors.New("MCP request outside configured origin")
+	}
 	r = r.Clone(r.Context())
 	for k, v := range t.hdr {
 		r.Header[k] = v
@@ -360,44 +371,56 @@ func (c *capped) Read(p []byte) (int, error) {
 
 // tools asks LiteLLM for the entry's servers and keeps the allowlisted tools.
 func (s *Server) tools(ctx context.Context, cs *sdk.ClientSession, it catalog.Item, scope []assistants.Source) ([]tool, error) {
-	r, err := cs.ListTools(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
 	var out []tool
 	seen := map[string]bool{}
-	for _, def := range r.Tools {
-		up := def.Name
-		if scope != nil {
-			allowed := false
-			for _, source := range scope {
-				_, server := source.Server()
-				name, matched := (litellmBroker{}).nativeName(up, server)
-				var readOnly *bool
-				if def.Annotations != nil {
-					safe := def.Annotations.ReadOnlyHint && (def.Annotations.DestructiveHint == nil || !*def.Annotations.DestructiveHint)
-					readOnly = &safe
+	cursors := map[string]bool{}
+	params := &sdk.ListToolsParams{}
+	for range 20 {
+		r, err := cs.ListTools(ctx, params)
+		if err != nil {
+			return nil, err
+		}
+		for _, def := range r.Tools {
+			up := def.Name
+			if scope != nil {
+				allowed := false
+				for _, source := range scope {
+					_, server := source.Server()
+					name, matched := (litellmBroker{}).nativeName(up, server)
+					var readOnly *bool
+					if def.Annotations != nil {
+						safe := def.Annotations.ReadOnlyHint && (def.Annotations.DestructiveHint == nil || !*def.Annotations.DestructiveHint)
+						readOnly = &safe
+					}
+					if matched && source.Allows(name, readOnly) {
+						allowed = true
+					}
 				}
-				if matched && source.Allows(name, readOnly) {
-					allowed = true
+				if !allowed {
+					continue
 				}
 			}
-			if !allowed {
+			name := (litellmBroker{}).localName(up, it.LiteLLM)
+			if !slices.Contains(it.Tools, name) || seen[name] {
 				continue
 			}
+			seen[name] = true
+			def.Name = name
+			if description := []rune(def.Description); len(description) > 2000 {
+				def.Description = string(description[:2000])
+			}
+			out = append(out, tool{upstream: up, def: def})
 		}
-		name := (litellmBroker{}).localName(up, it.LiteLLM)
-		if !slices.Contains(it.Tools, name) || seen[name] {
-			continue
+		if r.NextCursor == "" {
+			return out, nil
 		}
-		seen[name] = true
-		def.Name = name
-		if description := []rune(def.Description); len(description) > 2000 {
-			def.Description = string(description[:2000])
+		if cursors[r.NextCursor] {
+			return nil, errors.New("MCP tools/list repeated cursor")
 		}
-		out = append(out, tool{upstream: up, def: def})
+		cursors[r.NextCursor] = true
+		params.Cursor = r.NextCursor
 	}
-	return out, nil
+	return nil, errors.New("MCP tools/list exceeds 20 pages")
 }
 
 // call resolves the upstream name with a fresh tools/list (stateless; also

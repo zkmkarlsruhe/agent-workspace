@@ -45,6 +45,8 @@ type Config struct {
 	// OC_PROVISION_SOCKET: oc-provision unix socket; empty = the person's dir must already exist
 	ProvisionSocket string
 
+	FreeCADImage     string // OC_FREECAD_IMAGE: pinned application image; empty disables FreeCAD
+	OfficeImage      string // OC_OFFICE_IMAGE: digest-pinned private browser worker; empty disables Office
 	RuntimeImage     string // OC_RUNTIME_IMAGE
 	AdminConfig      string // OC_ADMIN_CONFIG: host dir or volume name mounted read-only at /etc/opencode; empty = none
 	ManagerContainer string // OC_MANAGER_CONTAINER: own container name, joined to every user network as llm-gw
@@ -80,15 +82,17 @@ type Config struct {
 	MCPUpstreamKey     string // OC_MCP_UPSTREAM_KEY: falls back to LITELLM_API_KEY
 
 	LLMMaxBodyMB        int // OC_LLM_MAX_BODY_MB: buffered request limit in MiB, default 32; 0 = unlimited
-	ImageDecodeParallel int // OC_IMAGE_DECODE_PARALLEL: concurrent image decodes/scales, default 4; 0 = unlimited
+	ImageDecodeParallel int // OC_IMAGE_DECODE_PARALLEL: concurrent image operations (read, prepare, provider, validate/save), default 4; 0 = unlimited
 	PageCacheMB         int // OC_PAGE_CACHE_MB: page-cache payload limit in MiB, default 64; 0 = count-only legacy
 
 	FetchDenyHosts []string // OC_FETCH_DENY_HOSTS: extra blocked hosts and suffixes, comma-separated; empty = none
 	SearXNGURL     string   // OC_SEARXNG_URL: SearXNG for the Workspace-MCP tool web_search
+	FileToolsURL   string   // OC_FILE_TOOLS_URL: internal file processing service; empty = off
 	PDFURL         string   // OC_PDF_URL: Gotenberg for Markdown to PDF; "" = feature off
 	// OC_VISION_MODEL: LiteLLM alias with image input for the Workspace-MCP tool
 	// image_view, must be in the models of the LITELLM_API_KEY key; "" or "-" = tool off
-	VisionModel string
+	HandwritingModel string // OC_HANDWRITING_MODEL: fixed transcription route; empty = off
+	VisionModel      string
 	// OC_IMAGE_MODELS: LiteLLM image aliases for image_generate in fallback
 	// order, comma-separated, EU first; "-" = tool off
 	ImageModels []string
@@ -172,6 +176,8 @@ func Load(getenv func(string) string) (Config, error) {
 		DBPath:           str("OC_DB_PATH", "/srv/opencode/manager/manager.db"),
 		UsersRoot:        str("OC_USERS_ROOT", "/srv/opencode/users"),
 		ProvisionSocket:  str("OC_PROVISION_SOCKET", ""),
+		FreeCADImage:     str("OC_FREECAD_IMAGE", ""),
+		OfficeImage:      str("OC_OFFICE_IMAGE", ""),
 		RuntimeImage:     str("OC_RUNTIME_IMAGE", ""),
 		AdminConfig:      str("OC_ADMIN_CONFIG", ""),
 		ManagerContainer: str("OC_MANAGER_CONTAINER", host),
@@ -190,7 +196,9 @@ func Load(getenv func(string) string) (Config, error) {
 		LiteLLMAPIKey:    str("LITELLM_API_KEY", ""),
 		SearXNGURL:       str("OC_SEARXNG_URL", ""),
 		PDFURL:           str("OC_PDF_URL", ""),
+		FileToolsURL:     str("OC_FILE_TOOLS_URL", ""),
 		VisionModel:      str("OC_VISION_MODEL", ""),
+		HandwritingModel: str("OC_HANDWRITING_MODEL", ""),
 		CatalogDir:       str("OC_CATALOG_DIR", ""),
 		LDAPURL:          str("OC_LDAP_URL", ""),
 		LDAPBaseDN:       str("OC_LDAP_BASE_DN", ""),
@@ -364,6 +372,9 @@ func Load(getenv func(string) string) (Config, error) {
 	if c.RequiredGroup == "-" {
 		c.RequiredGroup = "" // "-" disables the group check
 	}
+	if c.HandwritingModel == "-" {
+		c.HandwritingModel = ""
+	}
 	if c.VisionModel == "-" {
 		c.VisionModel = ""
 	}
@@ -383,6 +394,14 @@ func Load(getenv func(string) string) (Config, error) {
 	}
 	if len(c.TrustedProxy) == 0 {
 		errs = append(errs, errors.New("OC_TRUSTED_PROXY_CIDRS is required"))
+	}
+	if c.FreeCADImage != "" && !regexp.MustCompile(`@sha256:[0-9a-f]{64}$`).MatchString(c.FreeCADImage) {
+		errs = append(errs, errors.New("OC_FREECAD_IMAGE requires a digest"))
+	}
+	if c.OfficeImage != "" {
+		if !regexp.MustCompile(`@sha256:[0-9a-f]{64}$`).MatchString(c.OfficeImage) || len(c.House) != 1 || c.House[0].URL.Scheme != "https" || c.House[0].URL.Fragment != "" || c.EgressContainer == "" {
+			errs = append(errs, errors.New("OC_OFFICE_IMAGE requires a digest, one HTTPS Nextcloud service and egress"))
+		}
 	}
 	if c.RuntimeImage == "" {
 		errs = append(errs, errors.New("OC_RUNTIME_IMAGE is required"))
@@ -442,8 +461,10 @@ const (
 
 // Fixed addresses inside every user network <prefix>.<slot>.0/24 (same layout as the phase-1 compose).
 const (
-	HostEgress  = 2  // squid, alias egress
-	HostManager = 3  // the manager, alias llm-gw
+	HostEgress  = 2 // squid, alias egress
+	HostManager = 3 // the manager, alias llm-gw
+	HostFreeCAD = 12
+	HostOffice  = 11 // private Office HTTP worker
 	HostUser    = 10 // the person's OpenCode container
 	MaxSlot     = 254
 )
@@ -453,6 +474,10 @@ func SlotNetwork(slot int) string { return fmt.Sprintf("oc-u%d", slot) }
 
 // SlotContainer is the container name of a slot.
 func SlotContainer(slot int) string { return fmt.Sprintf("oc-user%d", slot) }
+
+func FreeCADContainer(slot int) string { return fmt.Sprintf("oc-user%d-freecad", slot) }
+
+func OfficeContainer(slot int) string { return fmt.Sprintf("oc-user%d-office", slot) }
 
 // ToolContainer is the name of a slot's toolbox container (D60); toolbox is a catalog id.
 func ToolContainer(slot int, toolbox string) string {

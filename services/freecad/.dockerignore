@@ -1,0 +1,5 @@
+__pycache__
+test_*.py
+README.md
+smoke.py
+compose.yaml

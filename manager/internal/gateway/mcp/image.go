@@ -10,7 +10,7 @@ import (
 	"errors"
 	"image"
 	"image/color"
-	_ "image/gif"
+	"image/gif"
 	"image/jpeg"
 	_ "image/png"
 	"io"
@@ -23,6 +23,7 @@ import (
 	_ "golang.org/x/image/webp"
 
 	"github.com/zkmkarlsruhe/agent-workspace/manager/internal/gateway/llm"
+	"github.com/zkmkarlsruhe/agent-workspace/manager/internal/lifecycle"
 	"github.com/zkmkarlsruhe/agent-workspace/manager/internal/store"
 )
 
@@ -41,11 +42,32 @@ var imageExts = []string{".png", ".jpg", ".jpeg", ".webp", ".gif"}
 
 var imageDecodeSlots = make(chan struct{}, 4)
 
-// SetImageDecodeParallel configures the process-wide limit before serving requests; 0 disables it.
+// SetImageDecodeParallel bounds in-flight image operations, including encoded buffers.
+// Configure it before serving requests; 0 disables the limit.
 func SetImageDecodeParallel(n int) {
 	imageDecodeSlots = nil
 	if n > 0 {
 		imageDecodeSlots = make(chan struct{}, n)
+	}
+}
+
+func acquireImageSlot(ctx context.Context) (func(), error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	slots := imageDecodeSlots
+	if slots == nil {
+		return func() {}, nil
+	}
+	select {
+	case slots <- struct{}{}:
+		if err := ctx.Err(); err != nil {
+			<-slots
+			return nil, err
+		}
+		return func() { <-slots }, nil
+	case <-ctx.Done():
+		return nil, ctx.Err()
 	}
 }
 
@@ -58,9 +80,19 @@ func (s *Server) imageView(ctx context.Context, u store.User, session string, ra
 	if err := json.Unmarshal(raw, &a); err != nil || strings.TrimSpace(a.Path) == "" || len(a.Question) > maxQuestion {
 		return errorResult(ctx, "Invalid parameters for image_view: path is missing or question is longer than 2000 characters."), m
 	}
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Minute)
+	defer cancel()
+	release, err := acquireImageSlot(ctx)
+	if err != nil {
+		return errorResult(ctx, "Image processing cancelled: %s", err), m
+	}
+	defer release()
 	img, full, fail := s.readImage(ctx, u, session, a.Path, &m)
 	if fail != nil {
 		return *fail, m
+	}
+	if err := ctx.Err(); err != nil {
+		return errorResult(ctx, "Image processing cancelled: %s", err), m
 	}
 	var jpg bytes.Buffer
 	if err := jpeg.Encode(&jpg, img, &jpeg.Options{Quality: 85}); err != nil {
@@ -71,9 +103,10 @@ func (s *Server) imageView(ctx context.Context, u store.User, session string, ra
 	if question == "" {
 		question = msg(ctx, defaultQuestion)
 	}
-	cctx, cancel := context.WithTimeout(ctx, 3*time.Minute)
-	defer cancel()
-	answer, err := s.Look(cctx, u, session, question, jpg.Bytes())
+	if err := ctx.Err(); err != nil {
+		return errorResult(ctx, "Image processing cancelled: %s", err), m
+	}
+	answer, err := s.Look(ctx, u, session, question, jpg.Bytes())
 	switch {
 	case errors.Is(err, llm.ErrDayCap):
 		m.status = http.StatusTooManyRequests
@@ -103,20 +136,20 @@ func (s *Server) readImage(ctx context.Context, u store.User, session, imgPath s
 	if ext := strings.ToLower(path.Ext(strings.TrimSpace(imgPath))); ext == ".heic" || ext == ".heif" {
 		return refuse("I cannot open HEIC images (iPhone). Ask the person to save the image as JPG or PNG and upload it again.")
 	}
-	dir := ""
-	if !strings.HasPrefix(strings.TrimSpace(imgPath), "/") {
-		if session == "" {
-			return refuse("Relative path without a session: give the absolute path, e.g. /workspace/<project>/[[folders.inbox]]/photo.jpg.")
-		}
-		var err error
-		if dir, err = s.Files.SessionDir(ctx, u.UID, session); err != nil {
-			s.Log.WarnContext(ctx, "image: session dir", "uid", u.UID, "err", err)
-			return refuse("The project folder of this session is unknown: give the absolute path, e.g. /workspace/<project>/[[folders.inbox]]/photo.jpg.")
-		}
+	if session == "" {
+		return refuse("image_view needs a session in a project.")
+	}
+	dir, err := s.Files.SessionDir(ctx, u.UID, session)
+	sessionProject, ok := strings.CutPrefix(dir, workspace)
+	if err != nil || !ok || !lifecycle.ValidProject(sessionProject) {
+		return refuse("The project folder of this session is unknown.")
 	}
 	project, rel, err := resolveFile(imgPath, dir, imageExts...)
 	if err != nil {
 		return refuse("path must be an image in the project (PNG, JPG, WebP or GIF), e.g. [[folders.inbox]]/photo.jpg; no dot folders, no \"..\". Copy uploads from the chat to [[folders.inbox]]/ first.")
+	}
+	if project != sessionProject {
+		return refuse("Source must belong to this session's project.")
 	}
 	rc, f, err := s.Files.OpenFile(ctx, u.UID, project, rel)
 	if err != nil {
@@ -139,6 +172,9 @@ func (s *Server) readImage(ctx context.Context, u store.User, session, imgPath s
 		m.status = http.StatusRequestEntityTooLarge
 		return refuse("The image is too large (%s, at most 20 MB). Shrink it first, e.g. with Pillow into [[folders.work]]/.", humanBytes(ctx, int64(len(src))))
 	}
+	if err := ctx.Err(); err != nil {
+		return refuse("Image processing cancelled: %s", err)
+	}
 	if img, err = imageScaled(src); err != nil {
 		m.status = http.StatusUnsupportedMediaType
 		if errors.Is(err, errImagePixels) {
@@ -150,36 +186,84 @@ func (s *Server) readImage(ctx context.Context, u store.User, session, imgPath s
 }
 
 var errImagePixels = errors.New("image: too many pixels")
+var errAnimatedGIF = errors.New("animated GIF edits are not supported; select a frame first")
 
 // imageScaled decodes PNG, JPEG, GIF (first frame) or WebP, shrinks the long
 // side to imageSide and draws it on white: one format for every model,
 // transparency readable, metadata (EXIF, GPS) not passed on. A JPEG's EXIF
 // orientation is applied, so phone photos arrive upright.
 func imageScaled(src []byte) (*image.RGBA, error) {
-	cfg, _, err := image.DecodeConfig(bytes.NewReader(src))
+	return imagePrepared(src, imageSide, true)
+}
+
+// imagePrepared keeps edit sources at full resolution with their alpha channel.
+func imagePrepared(src []byte, side int, flatten bool) (*image.RGBA, error) {
+	cfg, format, err := image.DecodeConfig(bytes.NewReader(src))
 	if err != nil {
 		return nil, err
 	}
 	if cfg.Width <= 0 || cfg.Height <= 0 || cfg.Width > maxImagePixels/cfg.Height {
 		return nil, errImagePixels
 	}
-	if imageDecodeSlots != nil {
-		imageDecodeSlots <- struct{}{}
-		defer func() { <-imageDecodeSlots }()
+	var img image.Image
+	if format == "gif" && !flatten {
+		reader := bytes.NewReader(src)
+		img, err = gif.Decode(reader)
+		if err == nil {
+			err = gifSingleFrame(reader)
+		}
+	} else {
+		img, _, err = image.Decode(bytes.NewReader(src))
 	}
-	img, _, err := image.Decode(bytes.NewReader(src))
 	if err != nil {
 		return nil, err
 	}
 	b := img.Bounds()
 	w, h := b.Dx(), b.Dy()
-	if long := max(w, h); long > imageSide {
-		w, h = max(1, w*imageSide/long), max(1, h*imageSide/long)
+	if long := max(w, h); side > 0 && long > side {
+		w, h = max(1, w*side/long), max(1, h*side/long)
 	}
 	dst := image.NewRGBA(image.Rect(0, 0, w, h))
-	draw.Draw(dst, dst.Bounds(), image.NewUniform(color.White), image.Point{}, draw.Src)
+	if flatten {
+		draw.Draw(dst, dst.Bounds(), image.NewUniform(color.White), image.Point{}, draw.Src)
+	}
 	draw.CatmullRom.Scale(dst, dst.Bounds(), img, b, draw.Over, nil)
 	return orient(dst, exifOrientation(src)), nil
+}
+
+// gif.Decode stops after the first frame. Inspect only subsequent blocks;
+// DecodeAll would allocate every frame of an untrusted animation.
+func gifSingleFrame(reader *bytes.Reader) error {
+	for {
+		block, err := reader.ReadByte()
+		if err != nil {
+			return err
+		}
+		switch block {
+		case 0x3b:
+			return nil // trailer
+		case 0x2c:
+			return errAnimatedGIF
+		case 0x21: // extension: label followed by size-prefixed data blocks
+			if _, err := reader.ReadByte(); err != nil {
+				return err
+			}
+			for {
+				size, err := reader.ReadByte()
+				if err != nil {
+					return err
+				}
+				if size == 0 {
+					break
+				}
+				if _, err := io.CopyN(io.Discard, reader, int64(size)); err != nil {
+					return err
+				}
+			}
+		default:
+			return errors.New("invalid GIF block after first frame")
+		}
+	}
 }
 
 // exifOrientation reads tag 0x0112 from a JPEG's APP1 Exif segment; 1 (as
@@ -266,13 +350,13 @@ func orient(img *image.RGBA, o int) *image.RGBA {
 var imageViewTool = map[string]any{
 	"name":        "image_view",
 	"title":       "Look at image",
-	"description": "Looks at an image in the project (PNG, JPG, WebP, GIF, up to 20 MB) and answers a question about it; without question, a detailed description with all visible text. For every question about an image file, including photos, scans, screenshots and graphics. Copy chat uploads to [[folders.inbox]]/ first.",
+	"description": "Looks at an image in this session's project (PNG, JPG, WebP, GIF, up to 20 MB) and answers a question about it; without question, a detailed description with all visible text. For every question about an image file, including photos, scans, screenshots and graphics. Copy chat uploads to [[folders.inbox]]/ first.",
 	"annotations": map[string]any{"readOnlyHint": true, "openWorldHint": false},
 	"inputSchema": map[string]any{
 		"type":     "object",
 		"required": []string{"path"},
 		"properties": map[string]any{
-			"path":     map[string]any{"type": "string", "maxLength": 1024, "description": "Path of the image, relative to the project folder ([[folders.inbox]]/photo.jpg) or absolute (/workspace/<project>/[[folders.inbox]]/photo.jpg)"},
+			"path":     map[string]any{"type": "string", "maxLength": 1024, "description": "Path of the image in this session's project, relative to the project folder ([[folders.inbox]]/photo.jpg) or absolute (/workspace/<project>/[[folders.inbox]]/photo.jpg)"},
 			"question": map[string]any{"type": "string", "maxLength": maxQuestion, "description": "What matters about the image, e.g. \"What text is on the poster?\"; empty = detailed description"},
 		},
 	},

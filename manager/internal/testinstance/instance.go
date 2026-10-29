@@ -39,7 +39,7 @@ func Load(filename string) (*instance.Definition, error) {
 		if entry.Kind != "mcp-central" || known[entry.ID] {
 			continue
 		}
-		m := integration.Manifest{Schema: 1, Name: entry.ID, Version: "0.1.0", Runs: "builtin", Kind: "remote", Tools: []string{"lookup"}}
+		m := integration.Manifest{Schema: 1, Name: entry.ID, Version: "0.1.0", Runs: "service", Kind: "remote", MCP: &integration.MCP{Path: "/mcp"}, Tools: []string{"lookup"}}
 		b, err := json.Marshal(m)
 		if err != nil {
 			return nil, err

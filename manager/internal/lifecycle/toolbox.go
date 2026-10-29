@@ -178,6 +178,12 @@ func (s *Service) ensureTool(ctx context.Context, uid, toolbox, image string) (i
 // removeTools removes the tool containers of uid on slot; a reused slot's next
 // tenant keeps theirs.
 func (s *Service) removeTools(ctx context.Context, uid string, slot int) error {
+	if err := s.closePersonCAD(ctx, uid, true); err != nil {
+		return err
+	}
+	if err := s.CloseOffice(ctx, uid); err != nil {
+		return err
+	}
 	list, err := s.rt.List(ctx)
 	if err != nil {
 		return err

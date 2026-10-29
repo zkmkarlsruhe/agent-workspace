@@ -9,6 +9,8 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+
+	"go.yaml.in/yaml/v3"
 )
 
 // ProjectConfig loads sources only in this project's location. Gateway calls
@@ -30,6 +32,28 @@ func ProjectConfig(project string, sources []Source, mcpTools ...string) []byte 
 	}
 	b, _ := json.Marshal(map[string]any{"mcp": map[string]any{"servers": servers}})
 	return b
+}
+
+// RuntimeConfig carries the saved definition with the project, overriding image defaults.
+func (p Definition) RuntimeConfig(project string, sources []Source) ([]byte, error) {
+	var config map[string]any
+	if err := json.Unmarshal(ProjectConfig(project, sources, p.MCPTools...), &config); err != nil {
+		return nil, err
+	}
+	header, prompt, _ := strings.Cut(strings.TrimPrefix(string(p.RenderAgent(sources...)), "---\n"), "---\n")
+	var agent map[string]any
+	if err := yaml.Unmarshal([]byte(header), &agent); err != nil {
+		return nil, err
+	}
+	agent["prompt"] = prompt
+	config["agents"] = map[string]any{p.AgentName(): agent}
+	if body := p.ModelBody(); len(body) > 0 {
+		model := map[string]string{"default": "standard", "small": "fast", "thorough": "thorough"}[p.ModelRole]
+		config["providers"] = map[string]any{"litellm": map[string]any{"models": map[string]any{
+			model: map[string]any{"variants": []any{map[string]any{"id": p.AgentName(), "body": body}}},
+		}}}
+	}
+	return json.Marshal(config)
 }
 
 // Source references an existing MCP, never a backend API or credentials.

@@ -65,7 +65,7 @@ func TestCatalogGo(t *testing.T) {
 	files, _ := filepath.Glob("*.go")
 	fset := token.NewFileSet()
 	for _, f := range files {
-		if strings.HasSuffix(f, "_test.go") || f == "i18n_de.go" {
+		if strings.HasSuffix(f, "_test.go") || strings.HasPrefix(f, "i18n_de") {
 			continue
 		}
 		af, err := parser.ParseFile(fset, f, nil, 0)
@@ -130,7 +130,7 @@ func TestToolsCatalog(t *testing.T) {
 			}
 		}
 	}
-	for _, tl := range slices.Concat(toolList, []map[string]any{mdToPDFTool, imageViewTool, imageGenDef}, nextcloudTools, nextcloudSyncTools, roomsTools) {
+	for _, tl := range slices.Concat(toolList, []map[string]any{mdToPDFTool, imageViewTool, imageGenDef, imageEditTool(), handwritingTool}, fileTools, nextcloudTools, nextcloudSyncTools, roomsTools, knowledgeTools) {
 		walk(tl)
 	}
 }

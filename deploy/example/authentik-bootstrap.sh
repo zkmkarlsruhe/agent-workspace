@@ -4,12 +4,13 @@ set -eu
 : "${OC_DOMAIN:?set OC_DOMAIN}"
 : "${AUTHENTIK_BOOTSTRAP_TOKEN:?set AUTHENTIK_BOOTSTRAP_TOKEN}"
 export OC_DOMAIN AUTHENTIK_BOOTSTRAP_TOKEN
-exec python3 - <<'PY'
+exec python3 - "$@" <<'PY'
 import json
 import os
 import re
 import secrets
 import stat
+import sys
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -17,6 +18,8 @@ from pathlib import Path
 
 if os.geteuid() != 0:
     raise SystemExit("Run as root: the test password belongs in /root/trial-user.pass")
+if sys.argv[1:] not in ([], ["--revoke"]):
+    raise SystemExit("Usage: authentik-bootstrap.sh [--revoke]")
 domain = os.environ["OC_DOMAIN"]
 if not re.fullmatch(r"[a-zA-Z0-9](?:[a-zA-Z0-9.-]*[a-zA-Z0-9])?", domain):
     raise SystemExit("OC_DOMAIN must be a DNS name without a scheme or path")
@@ -68,6 +71,12 @@ def flow(slug):
     return result["pk"]
 
 
+if sys.argv[1:] == ["--revoke"]:
+    api("DELETE", "core/tokens/authentik-bootstrap-token/")
+    print("Bootstrap token revoked; remove bootstrap variables and recreate the worker")
+    raise SystemExit(0)
+
+
 provider_data = {
     "name": "Workspace", "mode": "forward_domain",
     "external_host": f"https://{domain}", "cookie_domain": domain,
@@ -113,6 +122,11 @@ if user is None:
     })
 api("POST", f"core/users/{user['pk']}/set_password/", {"password": password})
 
+group = lookup("core/groups/", "name", "workspace-users")
+if group is None:
+    group = api("POST", "core/groups/", {"name": "workspace-users", "is_superuser": False})
+api("POST", f"core/groups/{group['pk']}/add_user/", {"pk": user["pk"]})
+
 # Read back the acceptance contract; reruns keep IDs and the saved password.
 actual = api("GET", f"providers/proxy/{provider['pk']}/")
 assert all(actual[key] == value for key, value in provider_data.items()), "provider mismatch"
@@ -121,6 +135,7 @@ actual = api("GET", f"outposts/instances/{outpost['pk']}/")
 assert provider["pk"] in actual["providers"]
 assert actual["config"]["authentik_host"] == config["authentik_host"]
 assert api("GET", f"core/users/{user['pk']}/")["is_active"], "trial-user is inactive"
-print("Verified Workspace provider, application, embedded outpost and active trial-user")
+assert group["pk"] in api("GET", f"core/users/{user['pk']}/")["groups"], "trial-user group mismatch"
+print("Verified Workspace provider, application, embedded outpost and trial-user in workspace-users")
 print("Test password: /root/trial-user.pass (0600); value withheld")
 PY

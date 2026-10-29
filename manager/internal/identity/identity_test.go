@@ -175,3 +175,37 @@ func TestMappedIdentityAndDerivedUID(t *testing.T) {
 		t.Fatalf("forwarded peer trusted: %v", err)
 	}
 }
+
+func TestMappedHeaderMultiplicity(t *testing.T) {
+	for _, custom := range []bool{false, true} {
+		c := Checker{Trusted: []netip.Prefix{netip.MustParsePrefix("192.0.2.0/24")}, SubjectHeader: "X-Subject"}
+		if custom {
+			c.Headers = Headers{UID: "X-Uid", Username: "X-User", Email: "X-Mail", Name: "X-Name", Groups: "X-Groups"}
+		}
+		h := c.Headers.WithDefaults()
+		for _, field := range []string{h.UID, h.Username, h.Email, h.Name, h.Groups, c.SubjectHeader} {
+			r := httptest.NewRequest("GET", "https://example.org/", nil)
+			r.RemoteAddr = "192.0.2.1:1234"
+			r.Header.Set(h.UID, uid)
+			r.Header.Set(h.Username, "user")
+			r.Header.Set(c.SubjectHeader, "subject")
+			r.Header.Set(h.Email, "mail")
+			r.Header.Set(h.Name, "name")
+			r.Header.Set(h.Groups, "group")
+			if _, err := c.FromRequest(r); err != nil {
+				t.Fatal(err)
+			}
+			r.Header.Add(strings.ToLower(field), r.Header.Get(field))
+			if _, err := c.FromRequest(r); err != ErrInvalid {
+				t.Fatalf("%s: %v", field, err)
+			}
+			value := r.Header.Get(field)
+			r.Header.Set(field, value)
+			r.Header[strings.ToLower(field)] = []string{value}
+			if _, err := c.FromRequest(r); err != ErrInvalid {
+				t.Fatalf("mixed-case %s: %v", field, err)
+			}
+
+		}
+	}
+}

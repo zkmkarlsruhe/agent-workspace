@@ -47,6 +47,11 @@ func decide(now time.Time, r running, c config.Config) action {
 
 // Reap runs one idle tick over all running containers.
 func (s *Service) Reap(ctx context.Context) {
+	ctx, done, ok := s.beginWork(ctx)
+	if !ok {
+		return
+	}
+	defer done()
 	s.mu.Lock()
 	snap := make(map[string]running, len(s.run))
 	for uid, r := range s.run {
@@ -71,12 +76,17 @@ func (s *Service) Reap(ctx context.Context) {
 	for range min(parallel, len(snap)) {
 		workers.Go(func() {
 			for uid := range uids {
+				if ctx.Err() != nil {
+					return
+				}
 				s.reapPerson(ctx, uid, snap[uid], now)
 			}
 		})
 	}
 	workers.Wait()
 	s.sweepTools(ctx)
+	s.sweepOffice(ctx)
+	s.sweepCAD(ctx)
 	s.retryAdoption(ctx)
 	if s.AfterReap != nil {
 		s.AfterReap(ctx)
@@ -184,15 +194,25 @@ func (s *Service) Reconcile(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	var officeCleanup sync.WaitGroup
+	defer officeCleanup.Wait()
 	for _, c := range list {
 		if ctx.Err() != nil {
 			s.log.WarnContext(ctx, "reconcile deadline reached, keeping remaining containers", "err", ctx.Err())
 			return nil
 		}
-		if err := s.reconcileContainer(ctx, c); err != nil {
-			s.log.WarnContext(ctx, "container reconcile failed", "name", c.Name, "err", err)
+		reconcile := func() {
+			if err := s.reconcileContainer(ctx, c); err != nil {
+				s.log.WarnContext(ctx, "container reconcile failed", "name", c.Name, "err", err)
+			}
+		}
+		if c.Labels["oc.office"] != "" || c.Labels["oc.freecad"] == "1" {
+			officeCleanup.Go(reconcile)
+		} else {
+			reconcile()
 		}
 	}
+	officeCleanup.Wait()
 	slots, err := s.st.UserSlots(ctx)
 	if err != nil {
 		return err
@@ -232,6 +252,9 @@ func (s *Service) reconcileContainer(ctx context.Context, c runtime.Container) e
 		}
 	}
 	s.log.WarnContext(ctx, "removing container", "reason", "reconcile: stopped, orphan or not adoptable", "name", c.Name, "running", c.Running, "known_user", err == nil)
+	if c.Labels["oc.office"] != "" || c.Labels["oc.freecad"] == "1" {
+		return s.removeOffice(ctx, c.ID)
+	}
 	return s.rt.Remove(ctx, c.ID)
 }
 
@@ -302,7 +325,9 @@ func (s *Service) reconcileNetwork(ctx context.Context, slot int) (bool, error) 
 
 // Loop runs the watchdog and Reap every ReapInterval until ctx ends.
 func (s *Service) Loop(ctx context.Context) {
-	go s.WatchdogLoop(ctx)
+	var watchdog sync.WaitGroup
+	watchdog.Go(func() { s.WatchdogLoop(ctx) })
+	defer watchdog.Wait()
 	t := time.NewTicker(s.cfg.ReapInterval)
 	defer t.Stop()
 	for {

@@ -63,6 +63,8 @@ type Item struct {
 
 var pinnedRE = regexp.MustCompile(`^[a-z0-9.-]+(:[0-9]+)?/[a-z0-9._/-]+:[A-Za-z0-9._-]+@sha256:[0-9a-f]{64}$`)
 
+var toolNameRE = regexp.MustCompile(`^[a-z0-9_-]+$`)
+
 var idRE = regexp.MustCompile(`^[a-z0-9-]{2,40}$`)
 
 // ValidID is the catalog id rule; my-* and the older meine-* are reserved for own skills.
@@ -135,6 +137,9 @@ func Load(dir string) ([]Item, error) {
 			ok = ok && m.Tier == TierOptional && m.Server == "" && len(m.Tools) == 0 && pinnedRE.MatchString(m.Image) && len(m.Programs) > 0
 		default:
 			ok = false
+		}
+		for _, name := range append(slices.Clone(m.Tools), m.LiteLLM...) {
+			ok = ok && toolNameRE.MatchString(name)
 		}
 		if !ok {
 			errs = append(errs, fmt.Errorf("mcp.json %q: invalid entry", m.ID))

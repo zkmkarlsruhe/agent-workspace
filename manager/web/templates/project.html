@@ -40,6 +40,8 @@
 </div>
 {{if .D.Truncated}}<div class="alert" role="status"><p>{{th "The lists are shortened because the project has too many files or folder levels. You get all files with <a href=\"/projects/%s/zip?part=all\">Everything as ZIP</a>." $p}}</p></div>{{end}}
 
+{{if and .Knowledge (not .D.Assistant.ID)}}<p><a href="/knowledge?project_name={{.D.Name}}">{{t "Select knowledge for this project"}}</a></p>{{end}}
+{{if .D.Assistant.ID}}<p><a href="/projects/{{.D.Name}}/gaps">{{if .D.GapCollection}}{{t "Report missing guidance"}}{{else}}{{t "Knowledge gaps"}}{{end}}</a></p>{{end}}
 {{if and (not .D.Assistant.ID) (ne .D.Capabilities nil)}}
 <section class="section" id="capabilities" aria-labelledby="capabilities-h">
   <h2 id="capabilities-h">{{t "Capabilities in this project"}}</h2>

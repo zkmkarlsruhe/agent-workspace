@@ -9,10 +9,12 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/zkmkarlsruhe/agent-workspace/manager/internal/config"
 	"github.com/zkmkarlsruhe/agent-workspace/manager/internal/identity"
+	"github.com/zkmkarlsruhe/agent-workspace/manager/internal/ratelimit"
 	_ "modernc.org/sqlite"
 )
 
@@ -349,13 +351,42 @@ CREATE TABLE IF NOT EXISTS nc_ablagen (
 	`ALTER TABLE usage_events ADD COLUMN raw_cost REAL;
  ALTER TABLE usage_events ADD COLUMN raw_cost_unit TEXT;
  ALTER TABLE usage_events ADD COLUMN raw_cost_source TEXT;`,
+	// 28: assistant drafts stay separate from the deployed instance; gaps contain only approved summaries.
+	`CREATE TABLE assistant_revisions (
+ assistant TEXT NOT NULL, revision INTEGER NOT NULL, definition TEXT NOT NULL,
+ hash TEXT NOT NULL, base_hash TEXT NOT NULL, actor TEXT NOT NULL, created INTEGER NOT NULL,
+ PRIMARY KEY (assistant, revision)
+);
+CREATE TABLE assistant_gaps (
+ id TEXT PRIMARY KEY, uid TEXT NOT NULL REFERENCES users(uid) ON DELETE CASCADE,
+ project_id TEXT NOT NULL, assistant TEXT NOT NULL, summary TEXT NOT NULL,
+ sources TEXT NOT NULL, category TEXT NOT NULL, guidance TEXT NOT NULL DEFAULT '',
+ revision INTEGER NOT NULL DEFAULT 1, created INTEGER NOT NULL, expires INTEGER NOT NULL
+);
+CREATE INDEX assistant_gaps_owner ON assistant_gaps(uid, project_id);`,
+	// 29: one authoritative set; existing draft history is retained but never activated.
+	`CREATE TABLE assistant_config (
+ id INTEGER PRIMARY KEY CHECK (id = 1), definitions TEXT NOT NULL
+);`,
+	// 30: teams and authored knowledge, independent of personal runtime storage.
+	knowledgeSchema,
+	// 31: existing memberships remain accepted; new invitations grant no access.
+	`ALTER TABLE team_members ADD COLUMN status TEXT NOT NULL DEFAULT 'invited' CHECK(status IN ('invited','member'));
+ ALTER TABLE team_members ADD COLUMN invited_at INTEGER;
+ ALTER TABLE team_members ADD COLUMN accepted_at INTEGER;
+ UPDATE team_members SET status='member',accepted_at=CAST(strftime('%s','now') AS INTEGER)*1000;
+ CREATE INDEX team_audit_invites ON team_audit(team_id,created) WHERE action='invite';`,
 }
 
 // migrationFuncs run after the SQL of the migration with that number (1-based),
 // in its transaction, for rewrites SQL alone cannot do.
 var migrationFuncs = map[int]func(*sql.Tx) error{20: migrateEnglish, 21: migrateIdentity}
 
-type Store struct{ db *sql.DB }
+type Store struct {
+	db          *sql.DB
+	assistantMu sync.Mutex
+	teamSearch  ratelimit.Limiter
+}
 
 func Open(path string) (*Store, error) {
 	dsn := "file:" + path + "?_pragma=journal_mode(WAL)&_pragma=synchronous(NORMAL)&_pragma=busy_timeout(5000)&_pragma=foreign_keys(1)"
@@ -424,20 +455,20 @@ func (s *Store) migrate() error {
 }
 
 type User struct {
-	UID, Username, Email, DisplayName, Slug string
-	Slot                                    int
-	Generation                              int64
-	CreatedAt                               time.Time
+	UID, Username, Email, DisplayName, Slug, Incarnation string
+	Slot                                                 int
+	Generation                                           int64
+	CreatedAt                                            time.Time
 }
 
-const userCols = `uid, username, email, display_name, slug, slot, generation, created_at`
+const userCols = `uid, username, email, display_name, slug, slot, generation, created_at, incarnation`
 
 type scanner interface{ Scan(...any) error }
 
 func scanUser(r scanner) (User, error) {
 	var u User
 	var created int64
-	err := r.Scan(&u.UID, &u.Username, &u.Email, &u.DisplayName, &u.Slug, &u.Slot, &u.Generation, &created)
+	err := r.Scan(&u.UID, &u.Username, &u.Email, &u.DisplayName, &u.Slug, &u.Slot, &u.Generation, &created, &u.Incarnation)
 	if errors.Is(err, sql.ErrNoRows) {
 		return u, ErrNotFound
 	}

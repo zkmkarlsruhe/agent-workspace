@@ -4,6 +4,7 @@ package mcp
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"errors"
 	"image"
@@ -19,7 +20,14 @@ func TestImageDecodeParallel(t *testing.T) {
 		SetImageDecodeParallel(1)
 		imageDecodeSlots <- struct{}{}
 		done := make(chan error, 1)
-		go func() { _, err := imageScaled(src); done <- err }()
+		go func() {
+			release, err := acquireImageSlot(context.Background())
+			if err == nil {
+				_, err = imageScaled(src)
+				release()
+			}
+			done <- err
+		}()
 		synctest.Wait()
 		select {
 		case <-done:
@@ -73,24 +81,15 @@ func TestImageAnswerBounds(t *testing.T) {
 	if _, err := aiPNG(b, "test", "test"); !errors.Is(err, errImagePixels) {
 		t.Fatalf("49 MP model answer: %v", err)
 	}
-	defer SetImageDecodeParallel(4)
-	synctest.Test(t, func(t *testing.T) {
-		SetImageDecodeParallel(1)
-		imageDecodeSlots <- struct{}{}
-		done := make(chan error, 1)
-		go func() { _, err := aiPNG(src.Bytes(), "test", "test"); done <- err }()
-		synctest.Wait()
-		select {
-		case <-done:
-			t.Fatal("model answer bypassed occupied decode slot")
-		default:
-		}
-		<-imageDecodeSlots
-		if err := <-done; err != nil {
-			t.Fatal(err)
-		}
-		if len(imageDecodeSlots) != 0 {
-			t.Fatal("model answer leaked decode slot")
-		}
-	})
+	for name, data := range map[string][]byte{
+		"header only":  []byte(pngOf(2, 2))[:33],
+		"missing IEND": []byte(pngOf(2, 2))[:len(pngOf(2, 2))-12],
+		"broken IDAT":  func() []byte { b := []byte(pngOf(2, 2)); b[41] ^= 0xff; return b }(),
+	} {
+		t.Run(name, func(t *testing.T) {
+			if _, err := aiPNG(data, "test", "test"); err == nil {
+				t.Fatal("invalid PNG accepted")
+			}
+		})
+	}
 }

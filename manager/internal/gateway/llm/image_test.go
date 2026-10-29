@@ -15,6 +15,23 @@ import (
 	"github.com/zkmkarlsruhe/agent-workspace/manager/internal/store"
 )
 
+func TestImageUncertainOutcomeDoesNotFallback(t *testing.T) {
+	for _, status := range []int{200, 502} {
+		t.Run(http.StatusText(status), func(t *testing.T) {
+			calls := 0
+			g, _ := gateway(t, func(w http.ResponseWriter, r *http.Request) {
+				calls++
+				w.WriteHeader(status)
+				io.WriteString(w, `{"data":[]}`)
+			})
+			_, _, err := g.Image(context.Background(), store.User{UID: "u1", Username: "alice"}, "ses_x", []string{"first", "second"}, "picture", "1024x1024", nil)
+			if !errors.Is(err, ErrImageUncertain) || calls != 1 {
+				t.Fatalf("calls=%d err=%v", calls, err)
+			}
+		})
+	}
+}
+
 // Image falls through the models in order, records every attempt with its
 // own cost and edits through multipart with the template as field "image".
 func TestImageFallbackAndEdit(t *testing.T) {

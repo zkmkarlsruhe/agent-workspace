@@ -65,7 +65,7 @@ func (t tools) Tools(ctx context.Context, uid string) (portal.ToolsPage, error) 
 			TitleEN: s.Title, DescriptionEN: s.Description})
 	}
 	for _, it := range t.c.Items() {
-		tl := portal.Tool{ID: it.ID, Title: it.TitleDE, Description: it.DescriptionDE, Category: it.Category,
+		tl := portal.Tool{Remote: it.Kind == catalog.KindCentral, ID: it.ID, Title: it.TitleDE, Description: it.DescriptionDE, Category: it.Category,
 			TitleEN: it.Title, DescriptionEN: it.Description, On: on[it.ID]}
 		if it.Tier == catalog.TierStandard {
 			d.Standard = append(d.Standard, tl)

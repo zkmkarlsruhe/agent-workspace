@@ -35,7 +35,9 @@ import (
 // Names as in config.SlotContainer / config.SlotNetwork; neither can be read
 // as a hex id prefix, so the engine resolves them by name only.
 var (
-	userCtrRE = regexp.MustCompile(`^oc-user[0-9]{1,3}$`)
+	freecadCtrRE = regexp.MustCompile(`^oc-user([0-9]{1,3})-freecad$`)
+	officeCtrRE  = regexp.MustCompile(`^oc-user([0-9]{1,3})-office$`)
+	userCtrRE    = regexp.MustCompile(`^oc-user[0-9]{1,3}$`)
 	// config.ToolContainer: oc-user<slot>-tb-<toolbox> (D60)
 	ctrIDRE   = regexp.MustCompile(`^[0-9a-f]{12,64}$`)
 	toolCtrRE = regexp.MustCompile(`^oc-user([0-9]{1,3})-tb-([a-z0-9-]{2,40})$`)
@@ -74,7 +76,9 @@ type Policy struct {
 	Joinable []string
 	// ToolImages are the exact digest-pinned images a tool container may run
 	// (catalog kind toolbox, D60); none by default.
-	ToolImages []string
+	ToolImages   []string
+	FreeCADImage string
+	OfficeImage  string // exact digest-pinned browser image; empty disables it
 }
 
 type Proxy struct {
@@ -188,7 +192,7 @@ func match(re *regexp.Regexp, s, what string) error {
 
 // ownCtr: a person's OpenCode container or one of its tool containers.
 func ownCtr(name string) error {
-	if toolCtrRE.MatchString(name) || oldToolCtrRE.MatchString(name) {
+	if freecadCtrRE.MatchString(name) || officeCtrRE.MatchString(name) || toolCtrRE.MatchString(name) || oldToolCtrRE.MatchString(name) {
 		return nil
 	}
 	return match(userCtrRE, name, "container")
@@ -246,6 +250,12 @@ func rewrite[T any](r *http.Request, check func(*T) error) error {
 
 func (px *Proxy) create(r *http.Request) error {
 	name := r.URL.Query().Get("name")
+	if m := freecadCtrRE.FindStringSubmatch(name); m != nil {
+		return rewrite(r, func(c *container.CreateRequest) error { return px.checkFreeCADCreate(m[1], c) })
+	}
+	if m := officeCtrRE.FindStringSubmatch(name); m != nil {
+		return rewrite(r, func(c *container.CreateRequest) error { return px.checkOfficeCreate(m[1], c) })
+	}
 	if m := toolCtrRE.FindStringSubmatch(name); m != nil {
 		return rewrite(r, func(c *container.CreateRequest) error { return px.checkToolCreate(m[1], m[2], c) })
 	}

@@ -131,11 +131,14 @@ func (s *Store) ensureIdentity(ctx context.Context, id identity.Identity, create
 		return User{}, err
 	}
 	now := time.Now().UnixMilli()
-	if _, err := tx.ExecContext(ctx, `INSERT INTO users (`+userCols+`, identity_issuer, identity_subject) VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?)`,
+	if _, err := tx.ExecContext(ctx, `INSERT INTO users (`+userCols+`, identity_issuer, identity_subject) VALUES (?, ?, ?, ?, ?, ?, 0, ?, '', ?, ?)`,
 		id.UID, id.Username, id.Email, id.Name, slug, slot, now, null(id.Issuer), null(id.Subject)); err != nil {
 		return User{}, err
 	}
 	u = User{UID: id.UID, Username: id.Username, Email: id.Email, DisplayName: id.Name, Slug: slug, Slot: slot, CreatedAt: time.UnixMilli(now)}
+	if err := tx.QueryRowContext(ctx, `SELECT incarnation FROM users WHERE uid=?`, u.UID).Scan(&u.Incarnation); err != nil {
+		return User{}, err
+	}
 	return u, tx.Commit()
 }
 

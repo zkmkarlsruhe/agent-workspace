@@ -24,6 +24,8 @@ const ImageReserveEUR = 0.10
 
 const maxImageResponse = 48 << 20
 
+var ErrImageUncertain = errors.New("image: provider may have completed the request; do not retry automatically")
+
 // Image generates one picture with the first of models that answers, or
 // edits src when it is set (/v1/images/edits). Every attempt is reserved
 // and recorded on its own; a refused budget stops the round.
@@ -34,7 +36,7 @@ func (g *Gateway) Image(ctx context.Context, u store.User, session string, model
 		if img, err = g.image(ctx, u, session, m, prompt, size, src); err == nil {
 			return img, m, nil
 		}
-		if errors.Is(err, ErrDayCap) || errors.Is(err, ErrBusy) || ctx.Err() != nil {
+		if errors.Is(err, ErrDayCap) || errors.Is(err, ErrBusy) || errors.Is(err, ErrImageUncertain) || ctx.Err() != nil {
 			break
 		}
 		g.Log.WarnContext(ctx, "image: model failed", "upstream", "llm", "model", m, "err", err)
@@ -83,6 +85,7 @@ func (g *Gateway) image(ctx context.Context, u store.User, session, model, promp
 	if err != nil {
 		if sent.Load() { // LiteLLM may have run (and billed) it
 			estimate()
+			err = errors.Join(ErrImageUncertain, err)
 		}
 		g.record(ctx, ev)
 		return nil, err
@@ -90,7 +93,7 @@ func (g *Gateway) image(ctx context.Context, u store.User, session, model, promp
 	defer resp.Body.Close()
 	g.responseUsage(&ev, resp)
 	raw, err := io.ReadAll(io.LimitReader(resp.Body, maxImageResponse))
-	m := &meter{ev: ev, accounting: g.accounting()}
+	m := &meter{ev: ev, accounting: g.accounting(), flavor: g.Flavor}
 	m.apply(raw)
 	ev = m.ev
 	if ev.CostEUR == nil && resp.StatusCode/100 == 2 {
@@ -98,9 +101,12 @@ func (g *Gateway) image(ctx context.Context, u store.User, session, model, promp
 	}
 	g.record(ctx, ev)
 	if err != nil {
-		return nil, err
+		return nil, errors.Join(ErrImageUncertain, err)
 	}
 	if resp.StatusCode != http.StatusOK {
+		if resp.StatusCode >= 500 {
+			return nil, fmt.Errorf("%w: HTTP %d", ErrImageUncertain, resp.StatusCode)
+		}
 		return nil, fmt.Errorf("image: HTTP %d: %.300s", resp.StatusCode, raw)
 	}
 	var r struct {
@@ -109,7 +115,11 @@ func (g *Gateway) image(ctx context.Context, u store.User, session, model, promp
 		} `json:"data"`
 	}
 	if err := json.Unmarshal(raw, &r); err != nil || len(r.Data) == 0 || r.Data[0].B64 == "" {
-		return nil, errors.Join(err, errors.New("image: no b64_json in the answer"))
+		return nil, errors.Join(ErrImageUncertain, err, errors.New("image: no b64_json in the answer"))
 	}
-	return base64.StdEncoding.DecodeString(r.Data[0].B64)
+	decoded, err := base64.StdEncoding.DecodeString(r.Data[0].B64)
+	if err != nil {
+		return nil, errors.Join(ErrImageUncertain, err)
+	}
+	return decoded, nil
 }

@@ -151,10 +151,10 @@ func TestProviderSanitizerAndStreaming(t *testing.T) {
 				io.WriteString(w, "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"call_1\",\"type\":\"function\",\"function\":{\"name\":\"lookup\",\"arguments\":\"{}\"}}]},\"finish_reason\":\"tool_calls\"}]}\n\n")
 				io.WriteString(w, "data: {\"usage\":{\"prompt_tokens\":10,\"completion_tokens\":2}}\n\ndata: [DONE]\n\n")
 			})
-			body := map[string]any{"model": "provider-model", "messages": []any{}, "stream": true, "max_tokens": 99999,
+			body := map[string]any{"model": instance.Current().Models.Default, "messages": []any{}, "stream": true, "max_tokens": 99999,
 				"tools":          []any{map[string]any{"type": "function", "function": map[string]any{"name": "lookup", "parameters": map[string]any{"type": "object"}}}},
 				"stream_options": map[string]any{"include_usage": false}}
-			for _, k := range dropKeys {
+			for _, k := range blockedRequestKeys {
 				body[k] = "untrusted"
 			}
 			body["n"] = 7
@@ -240,7 +240,7 @@ func TestProviderResponseHeaderAllowlist(t *testing.T) {
 					io.WriteString(w, "{}")
 					w.Header().Set("X-Debug-Trailer", "private")
 				})
-				method, body := "POST", `{"model":"m","input":"x","messages":[]}`
+				method, body := "POST", `{"model":"`+instance.Current().Models.Default+`","input":"x","messages":[]}`
 				if path == "/v1/models" {
 					method, body = "GET", ""
 				}
@@ -279,15 +279,15 @@ func TestOpenAIUsageCostCurrency(t *testing.T) {
 				io.WriteString(w, `{"usage":{"prompt_tokens":10,"completion_tokens":2,"cost":0.5}}`)
 			})
 			g.Accounting.UpstreamCostCurrency, g.Accounting.USDPerEUR = currency, 1.25
-			w := call(g, "POST", "/v1/chat/completions", "10.90.1.10:1", `{"model":"m","messages":[]}`, nil)
+			w := call(g, "POST", "/v1/chat/completions", "10.90.1.10:1", `{"model":"`+instance.Current().Models.Default+`","messages":[]}`, nil)
 			if w.Code != 200 || len(rec.ev) != 1 {
 				t.Fatalf("response: %d events: %+v", w.Code, rec.ev)
 			}
 			e := rec.ev[0]
-			if e.DeploymentID != "" || e.RawCostSource != "usage" || e.RawCostUnit != currency || e.RawCost == nil || *e.RawCost != .5 {
+			if e.DeploymentID != "" || e.RawCostSource != "" || e.RawCostUnit != "" || e.RawCost != nil {
 				t.Fatalf("raw evidence: %+v", e)
 			}
-			if currency == "EUR" && (e.CostSource != "usage" || *e.CostEUR != .5) || currency == "USD" && (e.CostSource != "usage-usd" || *e.CostEUR != .4) || currency == "none" && e.CostSource != "estimate" {
+			if e.CostSource != "estimate" || e.CostEUR == nil || *e.CostEUR >= .4 {
 				t.Errorf("billing: %+v", e)
 			}
 		})

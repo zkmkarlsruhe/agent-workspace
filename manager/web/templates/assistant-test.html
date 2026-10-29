@@ -1,0 +1,20 @@
+{{define "title"}}{{t "Test assistant"}}{{end}}
+{{define "content"}}
+{{template "admin-nav" "assistants"}}
+<h1>{{t "Test assistant"}}: {{.D.Definition.Title}}</h1>
+<p>{{t "This test uses the configured model and your normal budget. It has no live tools or source access. Supply synthetic source excerpts to test instructions, citations and escalation."}}</p>
+<p>{{t "Test history stays in this browser form, not in server storage or the gap list. The audit stores only revision and outcome. Provider retention still applies."}}</p>
+{{with .D.Error}}<p role="alert">{{.}}</p>{{end}}
+{{range .D.Messages}}<section class="section"><h2>{{if eq .Role "user"}}{{t "You"}}{{else}}{{t "Answer"}}{{end}}</h2><pre class="support-message">{{.Content}}</pre></section>{{end}}
+<form method="post" action="/admin/assistants/{{.D.Definition.ID}}/test" class="form" data-once>
+ <input type="hidden" name="hash" value="{{.D.Hash}}">
+ <input type="hidden" name="history" value="{{.D.History}}">
+ <input type="hidden" name="send" value="1">
+ <div class="field"><label class="field__label" for="test-groups">{{t "Test audience (only your own groups)"}}</label>
+ <select class="input" multiple id="test-groups" name="groups">{{range .D.AvailableGroups}}<option value="{{.}}"{{if hasString $.D.Groups .}} selected{{end}}>{{.}}</option>{{end}}</select></div>
+ {{range .D.Sources}}<div class="field"><label class="field__label" for="fixture-{{.}}">{{t "Test source excerpt"}}: {{.}}</label><textarea class="textarea" rows="4" id="fixture-{{.}}" name="fixture_{{.}}" maxlength="8000" required>{{index $.D.Fixtures .}}</textarea></div>{{end}}
+ <div class="field"><label class="field__label" for="test-question">{{t "Your message"}}</label><textarea class="textarea" id="test-question" name="question" rows="4" maxlength="16000" required></textarea></div>
+ <div class="field"><label for="test-consent"><input id="test-consent" type="checkbox" name="test_consent" value="true" required> {{t "Send this synthetic test conversation to the configured model using my budget."}}</label></div>
+ <button class="btn btn--primary" type="submit">{{t "Send"}}</button>
+</form>
+{{end}}

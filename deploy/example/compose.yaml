@@ -12,6 +12,7 @@ x-authentik-env: &authentik-env
 
 services:
   manager:
+    stop_grace_period: 75s
     image: *manager-image
     build:
       context: ../../manager
@@ -38,12 +39,14 @@ services:
       OC_IDENTITY_HEADER_GROUPS: ${OC_IDENTITY_HEADER_GROUPS:-X-Authentik-Groups}
       OC_IDENTITY_GROUPS_SEPARATOR: ${OC_IDENTITY_GROUPS_SEPARATOR:-|}
       OC_LOGOUT_URL: ${OC_LOGOUT_URL:-/outpost.goauthentik.io/sign_out}
-      OC_REQUIRED_GROUP: ${OC_REQUIRED_GROUP:--}
+      OC_REQUIRED_GROUP: ${OC_REQUIRED_GROUP:-workspace-users}
       OC_ADMIN_GROUP: ${OC_ADMIN_GROUP:--}
       OC_ADMIN_TOKEN: ${OC_ADMIN_TOKEN:?set OC_ADMIN_TOKEN}
       DOCKER_HOST: unix:///run/oc-docker/sock
       OC_PROVISION_SOCKET: /run/oc-provision/sock
       OC_RUNTIME_IMAGE: *runtime-image
+      OC_OFFICE_IMAGE: ${OC_OFFICE_IMAGE:-}
+      OC_FREECAD_IMAGE: ${OC_FREECAD_IMAGE:-}
       OC_MANAGER_CONTAINER: workspace-manager
       OC_EGRESS_CONTAINER: workspace-egress
       OC_USERS_ROOT: /srv/opencode/users
@@ -93,6 +96,8 @@ services:
     cap_add: [CHOWN]
     environment:
       OC_RUNTIME_IMAGE: *runtime-image
+      OC_OFFICE_IMAGE: ${OC_OFFICE_IMAGE:-}
+      OC_FREECAD_IMAGE: ${OC_FREECAD_IMAGE:-}
       OC_PROXY_SOCKET: /run/oc-docker/sock
       OC_PROXY_SOCKET_OWNER: "100000:100000"
       OC_USERS_ROOT: /srv/opencode/users
@@ -128,12 +133,29 @@ services:
     restart: unless-stopped
     volumes:
       - ./squid.conf:/etc/squid/squid.conf:ro
+      - ./office-egress.conf:/etc/squid/office-egress.conf:ro
     networks: [egress]
 
   runtime-image:
     # Preload only: the manager creates per-person containers from this same ref.
     image: *runtime-image
     build: ./runtime
+    entrypoint: ["/bin/true"]
+    restart: "no"
+    network_mode: none
+
+  freecad-image:
+    # Preload the same digest configured in manager and dockerproxy.
+    profiles: [freecad]
+    image: ${OC_FREECAD_IMAGE:-workspace-freecad:unconfigured}
+    entrypoint: ["/bin/true"]
+    restart: "no"
+    network_mode: none
+
+  office-image:
+    # Optional preload. Enable this profile only with a digest-pinned bridge image.
+    profiles: [office]
+    image: ${OC_OFFICE_IMAGE:-nextcloud-browser-bridge:unconfigured}
     entrypoint: ["/bin/true"]
     restart: "no"
     network_mode: none

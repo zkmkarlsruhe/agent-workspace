@@ -17,8 +17,8 @@ LINKS = re.compile(r'(?:\]\(\s*|^ {0,3}\[[^\]\n]+\]:\s*)<?(?P<target>[^\s<>\)]+)
 
 def heading_ids(text):
     """Apply the default MkDocs toc slug rule to Markdown headings."""
-    ids = set()
     text = re.sub(r"(?ms)^(`{3,}|~{3,})[^\n]*\n.*?^\1[^\n]*$", "", text)
+    ids = set(re.findall(r'(?i)<[a-z][^>]*\s(?:id|name)\s*=\s*["\']([^"\']+)["\']', text))
     for match in re.finditer(r"(?m)^ {0,3}#{1,6}\s+(.+?)\s*#*\s*$|^([^\n]+)\n[=-]+\s*$", text):
         heading = match[1] or match[2]
         heading = re.sub(r"!?\[([^]]+)\]\([^)]*\)", r"\1", heading)
@@ -54,7 +54,7 @@ class DocumentChecks:
             for match in LINKS.finditer(text):
                 link = match["target"]
                 url = urlsplit(link)
-                if link.startswith("#") or not url.path:
+                if not url.path and not url.fragment:
                     continue
                 prefix = None
                 root = self.root
@@ -72,15 +72,15 @@ class DocumentChecks:
                         if page.is_dir():
                             target = page / ("index.md" if (page / "index.md").is_file() else "README.md")
                 else:
-                    target = path.parent / unquote(url.path)
+                    target = path.parent / unquote(url.path) if url.path else path
                 number = text[:match.start()].count("\n") + 1
                 location = f"{path.relative_to(self.root)}:{number}: {link}"
                 self.assertTrue(target.resolve().is_relative_to(root.resolve()), location + " escapes tree")
                 self.assertTrue(target.exists(), location + " missing target (set AW_CODE_TREE/AW_DOCS_TREE)")
                 if prefix == PAGES_URL:
                     self.assertTrue(target.is_file(), location + " missing page")
-                    if url.fragment:
-                        self.assertIn(unquote(url.fragment), heading_ids(target.read_text()), location + " missing anchor")
+                if url.fragment and target.is_file() and target.suffix == ".md":
+                    self.assertIn(unquote(url.fragment), heading_ids(target.read_text()), location + " missing anchor")
 
     def test_markdown(self):
         paths = sorted(self.root.rglob("*.md"))

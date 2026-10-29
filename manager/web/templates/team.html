@@ -1,0 +1,37 @@
+{{define "title"}}{{.D.Team.Name}}{{end}}
+{{define "content"}}
+<p class="breadcrumb"><a href="/teams">{{t "Teams"}}</a></p>
+<h1>{{.D.Team.Name}}</h1><p>{{.D.Team.Description}}</p>
+<p>{{t "All members can read and edit this team's knowledge. Team administrators manage membership and knowledge bases."}}</p>
+<a href="/knowledge">{{t "Knowledge"}}</a>
+{{if not .D.Team.Writable}}<p role="note">{{t "This team is read-only."}}</p>{{end}}
+{{if eq .D.Team.Role "admin"}}
+<details class="section"><summary>{{t "Team settings"}}</summary>
+<form class="form" method="post" action="/teams/{{.D.Team.ID}}">
+<input type="hidden" name="account" value="{{.D.Actor.Stamp}}"><input type="hidden" name="revision" value="{{.D.Team.Revision}}">
+<div class="field"><label for="team-name">{{t "Team name"}}</label><input class="input" id="team-name" name="name" maxlength="100" value="{{.D.Team.Name}}" required></div>
+<div class="field"><label for="team-description">{{t "Purpose"}}</label><textarea class="textarea" id="team-description" name="description" maxlength="4000">{{.D.Team.Description}}</textarea></div>
+<label for="team-archive"><input type="checkbox" id="team-archive" name="archived" value="true"{{if .D.Team.Archived}} checked{{end}}> {{t "Archived"}}</label>
+<button class="btn" type="submit">{{t "Save team settings"}}</button></form></details>
+{{end}}
+<h2>{{t "Members"}}</h2>
+<ul>{{range .D.Members}}<li>{{.Name}}{{if eq .Status "invited"}} · {{t "Pending invitation"}}{{end}} · {{if eq .Role "admin"}}{{t "Team Admin"}}{{else}}{{t "Member"}}{{end}}{{if .Blocked}} · {{t "Blocked"}}{{end}}
+{{if eq $.D.Team.Role "admin"}}
+<form method="post" action="/teams/{{$.D.Team.ID}}/members">
+<input type="hidden" name="account" value="{{$.D.Actor.Stamp}}"><input type="hidden" name="revision" value="{{$.D.Team.Revision}}"><input type="hidden" name="member" value="{{.UID}}">
+{{if eq .Status "invited"}}<input type="hidden" name="role" value=""><button class="btn" type="submit">{{t "Withdraw invitation"}}</button>{{else}}
+<label for="role-{{.UID}}">{{t "Role"}}</label><select id="role-{{.UID}}" name="role"><option value="member"{{if eq .Role "member"}} selected{{end}}>{{t "Member"}}</option><option value="admin"{{if eq .Role "admin"}} selected{{end}}>{{t "Team Admin"}}</option><option value="">{{t "Remove from team"}}</option></select><button class="btn" type="submit">{{t "Apply role"}}</button>{{end}}
+</form>{{end}}</li>{{end}}</ul>
+<form method="post" action="/teams/{{.D.Team.ID}}/members"><input type="hidden" name="account" value="{{.D.Actor.Stamp}}"><input type="hidden" name="revision" value="{{.D.Team.Revision}}"><input type="hidden" name="member" value="{{.D.Actor.UID}}"><input type="hidden" name="role" value=""><button class="btn" type="submit">{{t "Leave team"}}</button></form>
+{{if eq .D.Team.Role "admin"}}
+<h2>{{t "Invite members"}}</h2>
+<form class="form" method="get" action="/teams/{{.D.Team.ID}}"><label for="member-search">{{t "Find an existing account (at least three characters)"}}</label><input class="input" id="member-search" name="q" value="{{.D.Query}}" minlength="3" maxlength="100"><button class="btn" type="submit">{{t "Search"}}</button></form>
+{{range .D.Candidates}}<form class="section" method="post" action="/teams/{{$.D.Team.ID}}/members">
+<input type="hidden" name="account" value="{{$.D.Actor.Stamp}}"><input type="hidden" name="revision" value="{{$.D.Team.Revision}}"><input type="hidden" name="member" value="{{.UID}}"><input type="hidden" name="member_stamp" value="{{.Stamp}}"><input type="hidden" name="role" value="member">
+<span>{{.Name}}</span> <button class="btn" type="submit">{{t "Invite as member"}}</button></form>{{end}}
+{{if .D.Team.Archived}}<details class="section"><summary>{{t "Delete empty team permanently"}}</summary>
+<p>{{t "Export and delete the team's knowledge bases first. A team with remaining knowledge cannot be deleted."}}</p>
+<form method="post" action="/teams/{{.D.Team.ID}}/purge"><input type="hidden" name="account" value="{{.D.Actor.Stamp}}"><input type="hidden" name="revision" value="{{.D.Team.Revision}}"><label for="team-purge"><input id="team-purge" type="checkbox" name="confirm" value="purge" required> {{t "Delete empty team permanently"}}</label><button class="btn" type="submit">{{t "Delete permanently"}}</button></form></details>{{end}}
+<details class="section"><summary>{{t "Membership audit"}}</summary><ul>{{range .D.Audit}}<li>{{.Actor}} · {{.Action}} · {{.Subject}}</li>{{end}}</ul></details>
+{{end}}
+{{end}}

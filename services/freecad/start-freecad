@@ -1,0 +1,9 @@
+#!/bin/sh
+set -eu
+export PYTHONPATH="/opt/freecad-bridge:/opt/workspace-freecad${PYTHONPATH:+:$PYTHONPATH}"
+[ -f /config/workspace-freecad.cfg ] || cp /opt/workspace-freecad/defaults.cfg /config/workspace-freecad.cfg
+openbox --config-file /opt/workspace-freecad/openbox.xml &
+if [ -n "${WORKSPACE_FREECAD_SESSION:-}" ]; then
+    python3 /opt/workspace-freecad/control.py &
+fi
+exec /opt/freecad/AppRun --user-cfg /config/workspace-freecad.cfg /opt/workspace-freecad/start.FCMacro

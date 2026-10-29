@@ -26,11 +26,14 @@ func init() {
 		pc := portal.Config{Capabilities: map[string]bool{
 			"web": cfg.SearXNGURL != "", "rooms": cfg.RoomsURL != nil && cfg.BikesURL != nil,
 			"image_view": cfg.VisionModel != "", "image_generate": len(cfg.ImageModels) > 0,
-			"image_edit": cfg.ImageEditModel != "",
+			"image_edit":  cfg.ImageEditModel != "",
+			"mcp-central": cfg.MCPUpstreamURL != "",
 		}, LogoutURL: cfg.LogoutURL, UploadMaxBytes: cfg.UploadMaxBytes, TaskAssistants: portalTaskAssistants, Backend: backend{svc}, Assets: web.FS, Origin: "https://" + cfg.Domain, PDF: pdf, Tools: portalTools,
 			Connections: portalConns, Onboarding: portalOnboarding, Sync: portalSync, Consent: portalConsent, Group: cfg.RequiredGroup,
 			DayCapEUR: cfg.CostCapDayEUR, IdleTimeout: cfg.IdleTimeout, MaxRunning: cfg.MaxRunning, DayStart: config.DayStart, Spent: portalSpent, Settings: settingsFor(portalSettings),
 			IdentityGuard: portalIdentityGuard, Admin: portalAdmin, AdminGroup: cfg.AdminGroup, Prefs: prefsFor(portalPrefs, portalSettings), Feedback: portalFeedback}
+		pc.Knowledge = portalKnowledge
+		pc.KnowledgeReadOnly = !instance.Current().Enabled("knowledge")
 		if !instance.Current().Enabled("feedback") {
 			pc.Feedback = nil
 		}
@@ -50,7 +53,7 @@ func init() {
 		// one header parser and trust check (identity); the portal reads its own context key
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if id, ok := identity.FromContext(r.Context()); ok {
-				pid := portal.Identity{Blocked: id.Blocked, UID: id.UID, Username: id.Username, Email: id.Email, Name: id.Name, Groups: id.Groups}
+				pid := portal.Identity{Slug: id.Slug, Blocked: id.Blocked, UID: id.UID, Username: id.Username, Email: id.Email, Name: id.Name, Groups: id.Groups}
 				r = r.WithContext(portal.WithIdentity(r.Context(), pid))
 				if !id.Blocked && portalSettings != nil && (cfg.RequiredGroup == "" || slices.Contains(id.Groups, cfg.RequiredGroup)) {
 					portalSettings.Seen(settingsPerson(pid)) // facts refresh on login, at most daily

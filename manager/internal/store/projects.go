@@ -331,7 +331,7 @@ func (s *Store) DeleteTrash(ctx context.Context, uid, id string) error {
 	if _, err := tx.ExecContext(ctx, `DELETE FROM profile_projects WHERE uid = ? AND project_id IN (SELECT project_id FROM trash WHERE uid = ? AND id = ?)`, uid, uid, id); err != nil {
 		return err
 	}
-	for _, table := range []string{"nc_links", "nc_collections"} {
+	for _, table := range []string{"nc_links", "nc_collections", "assistant_gaps"} {
 		if _, err := tx.ExecContext(ctx, `DELETE FROM `+table+` WHERE project_id IN (SELECT project_id FROM trash WHERE uid = ? AND id = ?)`, uid, id); err != nil {
 			return err
 		}

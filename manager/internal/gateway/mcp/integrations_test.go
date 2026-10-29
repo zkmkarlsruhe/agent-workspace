@@ -45,7 +45,7 @@ func TestIntegrationDisabled(t *testing.T) {
 		if len(result.Error) != 0 || len(result.Result.Tools) != 0 {
 			t.Fatalf("disabled list: %s", list.Body)
 		}
-		for _, tool := range []string{"feedback_send", "web_search", "web_read", "md_to_pdf", "rooms_free", "image_view", "image_generate", "nextcloud_fetch", "toolbox_run"} {
+		for _, tool := range []string{"feedback_send", "web_search", "web_read", "md_to_pdf", "rooms_free", "image_view", "image_generate", "nextcloud_fetch", "toolbox_run", "image_edit", "background_remove", "raster_to_vector", "svg_create", "svg_edit", "image_transform", "pdf_to_text"} {
 			call := rpc(s, me, fmt.Sprintf(`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":%q,"arguments":{}}}`, tool))
 			if !strings.Contains(call.Body.String(), `"error"`) {
 				t.Errorf("disabled %s callable: %s", tool, call.Body)
@@ -53,7 +53,7 @@ func TestIntegrationDisabled(t *testing.T) {
 		}
 	}
 	init := rpc(s, me, `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"test","version":"1"}}}`)
-	if strings.Contains(init.Body.String(), "\x7a\x6b\x6d") || !strings.Contains(init.Body.String(), `"name":"workspace"`) {
+	if strings.Contains(init.Body.String(), "privatebrand") || !strings.Contains(init.Body.String(), `"name":"workspace"`) {
 		t.Fatalf("minimal identity: %s", init.Body)
 	}
 }

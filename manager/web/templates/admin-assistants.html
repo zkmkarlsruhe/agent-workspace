@@ -1,0 +1,16 @@
+{{define "title"}}{{t "Assistants"}}{{end}}
+{{define "content"}}
+{{template "admin-nav" "assistants"}}
+<h1>{{t "Assistants"}}</h1>
+<p>{{t "Saving updates the assistant immediately. New chats use the saved settings."}}</p>
+<a class="btn" href="/admin/assistants/new">{{t "New assistant"}}</a>
+{{range .D}}
+<section class="card section">
+ <h2><a href="/admin/assistants/{{.Definition.ID}}">{{.Definition.Title}}</a></h2>
+ <p>{{.Definition.Owner}}</p>
+ {{if .Error}}<p role="alert">{{.Error}}</p>{{end}}
+ <p>{{if .Definition.Enabled}}{{t "Enabled"}}{{else}}{{t "Disabled"}}{{end}}</p>
+ <p>{{t "Affected projects: %d; people: %d." .Projects .People}}</p>
+</section>
+{{else}}<p>{{t "No assistants available."}}</p>{{end}}
+{{end}}

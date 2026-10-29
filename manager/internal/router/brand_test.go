@@ -252,7 +252,7 @@ func TestInstanceBranding(t *testing.T) {
 	}
 	t.Cleanup(instance.Select(d))
 	got := string(brandHTML([]byte(ocIndex), "https://apps.example.org/", "de"))
-	if strings.Contains(strings.ToLower(got), "\x7a\x6b\x6d") || !strings.Contains(got, "Agent Workspace") || !strings.Contains(got, "/__workspace/brand.css") {
+	if strings.Contains(strings.ToLower(got), "privatebrand") || !strings.Contains(got, "Agent Workspace") || !strings.Contains(got, "/__workspace/brand.css") {
 		t.Fatalf("wrong instance branding: %s", got)
 	}
 	d.Values["name"] = `<script>alert("x")</script>`

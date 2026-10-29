@@ -1,0 +1,33 @@
+{{define "title"}}{{t "Knowledge gaps"}}{{end}}
+{{define "content"}}
+{{with .D.Project.Folder}}<p class="breadcrumb"><a href="/projects/{{.}}">{{.}}</a></p>{{end}}
+<h1>{{t "Knowledge gaps"}}</h1>
+<p>{{t "Only the summary and sources you approve here reach the instance administrators. No conversation or files are attached. Do not include passwords or personal details. Entries expire after 30 days; you can withdraw them earlier."}}</p>
+<a href="/assistant-gaps/export">{{t "Export my gap submissions"}}</a>
+{{with .D.Error}}<p role="alert">{{.}}</p>{{end}}
+{{if .D.CanSubmit}}
+<form class="form section" method="post" action="/projects/{{.D.Project.Folder}}/gaps">
+ <input type="hidden" name="token" value="{{.D.Gap.ID}}">
+ {{if .D.Preview}}
+ <h2>{{t "Review before submitting"}}</h2>
+ <pre class="support-message">{{.D.Gap.Summary}}</pre><pre class="support-message">{{.D.Gap.Sources}}</pre><p>{{.D.Gap.Category}}</p>
+ <input type="hidden" name="summary" value="{{.D.Gap.Summary}}"><input type="hidden" name="sources" value="{{.D.Gap.Sources}}"><input type="hidden" name="category" value="{{.D.Gap.Category}}">
+ <label for="gap-approve"><input id="gap-approve" type="checkbox" name="approve" value="true" required> {{t "Share exactly this summary and these source references with the instance administrators."}}</label>
+ <button class="btn btn--primary" type="submit">{{t "Submit summary"}}</button>
+ <button class="btn" type="submit" name="edit" value="true" formnovalidate>{{t "Edit summary"}}</button>
+ {{else}}
+ <div class="field"><label class="field__label" for="gap-category">{{t "Category"}}</label><select class="input" id="gap-category" name="category"><option value="missing"{{if eq .D.Gap.Category "missing"}} selected{{end}}>{{t "Missing guidance"}}</option><option value="outdated"{{if eq .D.Gap.Category "outdated"}} selected{{end}}>{{t "Outdated guidance"}}</option><option value="unclear"{{if eq .D.Gap.Category "unclear"}} selected{{end}}>{{t "Unclear guidance"}}</option></select></div>
+ <div class="field"><label class="field__label" for="gap-summary">{{t "Question or missing guidance"}}</label><textarea class="textarea" id="gap-summary" name="summary" rows="4" maxlength="4000" required>{{.D.Gap.Summary}}</textarea></div>
+ <div class="field"><label class="field__label" for="gap-sources">{{t "Sources already tried"}}</label><textarea class="textarea" id="gap-sources" name="sources" rows="3" maxlength="4000">{{.D.Gap.Sources}}</textarea></div>
+ <button class="btn" type="submit">{{t "Preview summary"}}</button>
+ {{end}}
+</form>
+{{end}}
+{{range .D.Rows}}
+<section class="card section"><h2>{{.Category}}</h2><pre class="support-message">{{.Summary}}</pre><pre class="support-message">{{.Sources}}</pre>
+{{if .Guidance}}<p>{{t "Answered"}}: <a href="{{.Guidance}}" rel="noreferrer noopener">{{.Guidance}}</a></p>{{else}}<p>{{t "Open"}}</p>{{end}}
+<p>{{t "Expires"}}: {{datetime .Expires}}</p>
+<form method="post" action="/assistant-gaps/{{.ID}}/withdraw"><button class="btn" type="submit">{{t "Withdraw submission"}}</button></form>
+</section>
+{{end}}
+{{end}}

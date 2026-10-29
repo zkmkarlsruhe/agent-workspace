@@ -45,6 +45,7 @@ func TestExampleManifests(t *testing.T) {
 			t.Fatalf("%s: directory does not match name %s", file, m.Name)
 		}
 		names = append(names, m.Name)
+		m.shipped = true
 		manifests = append(manifests, m)
 		opts.Enabled[m.Name] = true
 		opts.Grants[m.Name] = slices.Clone(m.Scopes) // explicit admin grants in this fixture

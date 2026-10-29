@@ -1,0 +1,30 @@
+{{define "title"}}{{t "Teams"}}{{end}}
+{{define "content"}}
+{{if .Admin}}<p><a href="/teams-recovery">{{t "Recover team administration"}}</a></p>{{end}}
+<h1>{{if .D.Recovery}}{{t "Recover team administration"}}{{else}}{{t "Teams"}}{{end}}</h1>
+{{template "team-invitations" .}}
+<p>{{t "Teams are project groups across departments. Joining a team shares none of your personal projects, chats or knowledge."}}</p>
+{{if and (not .D.Recovery) .KnowledgeWrite}}
+<form class="form section" method="post" action="/teams">
+<input type="hidden" name="account" value="{{.D.Actor.Stamp}}">
+<div class="field"><label for="team-name">{{t "Team name"}}</label><input class="input" id="team-name" name="name" maxlength="100" required></div>
+<div class="field"><label for="team-description">{{t "Purpose"}}</label><textarea class="textarea" id="team-description" name="description" maxlength="4000" rows="3"></textarea></div>
+<p>{{t "You become the team administrator and can appoint additional administrators."}}</p>
+<button class="btn btn--primary" type="submit">{{t "Create team"}}</button>
+</form>
+{{end}}
+{{range .D.Teams}}
+<section class="card section">
+<h2>{{if $.D.Recovery}}{{.Name}}{{else}}<a href="/teams/{{.ID}}">{{.Name}}</a>{{end}}</h2><p>{{.Description}}</p>
+{{if .Archived}}<p>{{t "Archived"}}</p>{{end}}
+{{if eq .Admins 0}}<p>{{t "No active administrator. Team content remains readable; editing requires recovery."}}</p>{{end}}
+{{if $.D.Recovery}}
+<form class="form" method="post" action="/teams-recovery/{{.ID}}">
+<input type="hidden" name="account" value="{{$.D.Actor.Stamp}}"><input type="hidden" name="revision" value="{{.Revision}}">
+<label for="recover-{{.ID}}">{{t "Existing account username"}}</label><input class="input" id="recover-{{.ID}}" name="username" required>
+<button class="btn" type="submit">{{t "Assign administrator"}}</button>
+</form>
+{{else}}<p>{{if eq .Role "admin"}}{{t "Team Admin"}}{{else}}{{t "Member"}}{{end}}</p>{{end}}
+</section>
+{{else}}<p>{{t "No teams to show."}}</p>{{end}}
+{{end}}

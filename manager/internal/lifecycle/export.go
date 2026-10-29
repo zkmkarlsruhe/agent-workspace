@@ -162,6 +162,52 @@ func (s *Service) Export(ctx context.Context, uid, project string, w io.Writer) 
 			}
 		}
 	}
+	gapProject := ""
+	if project != "" {
+		gapProject = ps[0].ID
+	}
+	gaps, err := s.st.AssistantGaps(ctx, uid, gapProject)
+	if err != nil {
+		return err
+	}
+	if len(gaps) > 0 {
+		data, err := json.MarshalIndent(gaps, "", "  ")
+		if err != nil {
+			return err
+		}
+		if err := zipText(zw, "knowledge-gaps.json", string(data), s.now()); err != nil {
+			return err
+		}
+	}
+	if project == "" {
+		actor, err := s.st.KnowledgeActor(ctx, uid)
+		if err != nil && !errors.Is(err, store.ErrNotFound) {
+			return err
+		}
+		if err == nil {
+			collections, err := s.st.KnowledgeCollections(ctx, actor)
+			if err != nil {
+				return err
+			}
+			for _, collection := range collections {
+				if collection.OwnerUID != uid {
+					continue
+				}
+				bundle, err := s.st.ExportKnowledge(ctx, actor, collection.ID)
+				if err != nil {
+					return err
+				}
+				id := collection.ID
+				data, err := json.MarshalIndent(bundle, "", "  ")
+				if err != nil {
+					return err
+				}
+				if err := zipText(zw, "knowledge/"+id+"/manifest.json", string(data), s.now()); err != nil {
+					return err
+				}
+			}
+		}
+	}
 	return zw.Close()
 }
 

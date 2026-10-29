@@ -1,0 +1,36 @@
+{{define "title"}}{{t "Edit assistant"}}{{end}}
+{{define "content"}}
+{{template "admin-nav" "assistants"}}
+<h1>{{t "Edit assistant"}} {{.D.Definition.ID}}</h1>
+<p>{{t "Saving updates the assistant immediately. New chats use the saved settings."}}</p>
+<p>{{t "Affected projects: %d; people: %d." .D.Projects .D.People}}</p>
+{{with .D.Error}}<p role="alert">{{.}}</p>{{end}}
+<form method="post" action="/admin/assistants/{{if .D.New}}new{{else}}{{.D.Definition.ID}}{{end}}" class="form">
+ <input type="hidden" name="hash" value="{{.D.Hash}}">
+ {{if .D.New}}<div class="field"><label class="field__label" for="assistant-id">{{t "Assistant ID"}}</label><input class="input" id="assistant-id" name="id" required pattern="[a-z][a-z0-9-]{0,39}" value="{{.D.Definition.ID}}"></div>{{end}}
+ {{range .D.Fields}}{{$field := .}}
+ <div class="field">
+  <label class="field__label" for="field-{{.Key}}">{{t .Label}}</label>
+  {{if eq .Kind "bool"}}
+   <input type="checkbox" id="field-{{.Key}}" name="{{.Key}}" value="true"{{if .Value}} checked{{end}}>
+  {{else if or (eq .Kind "select") (eq .Kind "multi")}}
+   <select class="input" id="field-{{.Key}}" name="{{.Key}}"{{if eq .Kind "multi"}} multiple{{end}}>
+    {{range .Options}}<option value="{{.}}"{{if or (eq $field.Value .) (hasString $field.Selected .)}} selected{{end}}>{{.}}</option>{{end}}
+   </select>
+  {{else if or (eq .Kind "text") (eq .Kind "lines")}}
+   <textarea class="textarea" id="field-{{.Key}}" name="{{.Key}}" rows="5" maxlength="16000">{{.Value}}</textarea>
+  {{else}}
+   <input class="input" id="field-{{.Key}}" name="{{.Key}}" value="{{.Value}}" maxlength="16000"{{if or (eq .Kind "integer") (eq .Kind "float")}} type="number" step="{{if eq .Kind "integer"}}1{{else}}any{{end}}"{{end}}>
+  {{end}}
+ </div>
+ {{end}}
+ <p>{{t "Knowledge gap collection requires an approved purpose, readership and retention policy. Entries expire after 30 days."}}</p>
+ <button class="btn btn--primary" type="submit">{{t "Save assistant"}}</button>
+</form>
+{{if not .D.New}}
+<div class="btn-row">
+ <form method="post" action="/admin/assistants/{{.D.Definition.ID}}/test"><input type="hidden" name="hash" value="{{.D.Hash}}"><button class="btn" type="submit">{{t "Test assistant"}}</button></form>
+ <form method="post" action="/admin/assistants/{{.D.Definition.ID}}/export"><input type="hidden" name="hash" value="{{.D.Hash}}"><button class="btn" type="submit">{{t "Export"}}</button></form>
+</div>
+{{end}}
+{{end}}

@@ -14,7 +14,7 @@ import (
 // Papierkorb, Usage = Verbrauch; the folders keep their names: "Results
 // (results/)", "Inbox (inbox/)". The product name "Agent Workspace" is never
 // translated.
-var catalogDE, deConflicts = mergeCatalogs(deCore, deProjects, deEnvironment, deSettings, deHelp, deHowto, deFeedback, deIdentity, deTaskAssistants)
+var catalogDE, deConflicts = mergeCatalogs(deCore, deProjects, deEnvironment, deSettings, deHelp, deHowto, deFeedback, deIdentity, deTaskAssistants, deAssistantEditor, deKnowledge)
 
 // catalogEN is the reverse: German texts that still arrive as data from other
 // packages (settings options and errors) are shown in English.

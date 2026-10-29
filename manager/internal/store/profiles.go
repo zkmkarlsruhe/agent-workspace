@@ -17,6 +17,36 @@ func (s *Store) OpenCodeAssistantProject(ctx context.Context, uid, id string) (P
  WHERE oc.project_id=p.id AND oc.uid=p.uid AND oc.profile_hash=p.profile_hash)`, uid, id))
 }
 
+// RefreshOpenCodeAssistant is used only after a fresh portal audience/consent check.
+// Both pins move together; staged and isolated projects cannot be converted here.
+func (s *Store) RefreshOpenCodeAssistant(ctx context.Context, p Project, pin assistants.Pin) error {
+	if pin.ID != p.Assistant.ID {
+		return ErrNotFound
+	}
+	if err := pin.Validate(); err != nil {
+		return err
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	res, err := tx.ExecContext(ctx, `UPDATE projects SET profile_version=?,profile_hash=?
+ WHERE id=? AND uid=? AND profile_id=? AND profile_hash=?
+ AND EXISTS (SELECT 1 FROM opencode_profile_projects oc WHERE oc.project_id=projects.id AND oc.uid=projects.uid AND oc.profile_hash=projects.profile_hash)
+ AND NOT EXISTS (SELECT 1 FROM profile_projects pp WHERE pp.project_id=projects.id)`, pin.Version, pin.Hash, p.ID, p.UID, pin.ID, p.Assistant.Hash)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n != 1 {
+		return ErrNotFound
+	}
+	if _, err = tx.ExecContext(ctx, `UPDATE opencode_profile_projects SET profile_hash=? WHERE project_id=? AND uid=?`, pin.Hash, p.ID, p.UID); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
 // PinProjectProfile stages a pin. Call through lifecycle.BindProjectProfile so
 // the shared runtime is stopped first. Existing pins cannot be changed or cleared.
 func (s *Store) PinProjectAssistant(ctx context.Context, uid, folder string, pin assistants.Pin) error {

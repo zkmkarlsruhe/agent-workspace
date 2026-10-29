@@ -37,6 +37,10 @@ func TestAssistantCardOpenCodeSession(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer st.Close()
+	if err := st.LoadAssistants(ctx); err != nil {
+		t.Fatal(err)
+	}
+	d = instance.Current()
 	if _, err := st.EnsureUser(ctx, identity.Identity{UID: uid1, Username: "alice"}); err != nil {
 		t.Fatal(err)
 	}
@@ -167,11 +171,37 @@ func TestAssistantCardOpenCodeSession(t *testing.T) {
 	if err := s.RenameProject(ctx, uid1, name, "renamed"); err != ErrInvalid {
 		t.Fatal("shared project renamed", err)
 	}
-	// Definition changes and unbound collisions must never repin an existing folder.
-	d.Assistants[0].Version++
-	if err := s.CreateAssistantProject(ctx, uid1, nil, NewProject{Name: name}, def.ID, d.AssistantPin(d.Assistants[0]).Hash); err != ErrExists {
-		t.Fatal("stale project reused", err)
+	// A saved definition is used after a fresh authorized card start; busy chats stay intact.
+	changed := def
+	changed.Prompt.Role = "Use the database-owned instructions."
+	changed.ModelRole = "small"
+	changed, err = st.SaveAssistant(ctx, changed, hash, uid1)
+	if err != nil {
+		t.Fatal(err)
 	}
+	hash = instance.Current().AssistantPin(changed).Hash
+	if _, err := s.AuthorizeAssistantSession(ctx, uid1, p.ID, original.ID); err == nil {
+		t.Fatal("stale project authorized")
+	}
+	oc.Active = []string{original.ID}
+	if err := s.CreateAssistantProject(ctx, uid1, nil, NewProject{Name: name}, def.ID, hash); err != ErrBusy {
+		t.Fatal("busy project changed", err)
+	}
+	oc.Active = nil
+	if err := s.CreateAssistantProject(ctx, uid1, nil, NewProject{Name: name}, def.ID, hash); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.CreateSession(ctx, uid1, name, ""); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(s.ws, name, "opencode.json"))
+	if err != nil || !strings.Contains(string(data), changed.Prompt.Role) || !strings.Contains(string(data), "litellm/fast#profile-it-hilfe") {
+		t.Fatal("saved runtime settings absent", string(data), err)
+	}
+	if len(oc.Evicted) < 2 {
+		t.Fatal("stale runtime config retained")
+	}
+	d = instance.Current()
 	if err := st.DeleteProject(ctx, uid1, name); err != nil {
 		t.Fatal(err)
 	}

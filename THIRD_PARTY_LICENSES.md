@@ -76,12 +76,41 @@ These are separate distributions, not relicensed under MIT. Debian contains pack
 under multiple licences, including GPL/LGPL; preserve each package's notices and source obligations.
 Node.js is installed from Debian packages, not a separate Node image. Versions follow the Debian snapshot.
 This is a base/runtime inventory, not an inventory of every package in an image.
+The public example documents linuxserver/freecad as an external runtime image; it is not relicensed under MIT.
+Unknown bases remain listed for review; CI uses --strict to reject them.
 
 | Component | Image/version | Licence(s) |
 |---|---|---|
 | debian | debian:trixie-slim | Various (including GPL, LGPL, BSD, MIT) |
+| ghcr.io/linuxserver/freecad | ghcr.io/linuxserver/freecad@sha256:e84add50316b74fdc4e89c7da967a6eb0114257b710080864e3ba2c5adfe72c6 | GPL-3.0 (linuxserver.io image build files); LGPL-2.1 (FreeCAD); various (Ubuntu base) |
 | golang | golang:1.27.2 | BSD-3-Clause (Go); various (Debian base) |
+| python | python:3.14-slim | PSF-2.0 (Python); various (Debian base) |
 | Node.js | Debian nodejs package | MIT; bundled dependencies have separate licences |
 
 Sources: [Debian package copyright](https://www.debian.org/legal/licenses/),
 [Go LICENSE](https://go.dev/LICENSE), [Node.js LICENSE](https://github.com/nodejs/node/blob/main/LICENSE).
+
+## Python services
+
+Direct requirements from services/*/requirements.txt; versions are read from those files.
+This reviewed map is not a transitive environment lock or a full image SBOM.
+Optional model weights, native libraries and base-image packages retain their own terms.
+
+| Service | Package | Version | Licence(s) |
+|---|---|---|---|
+| file-tools | rembg | 2.0.86 | MIT |
+| file-tools | vtracer | 1.0.0a4 | MIT OR Apache-2.0 |
+| file-tools | CairoSVG | 2.9.1 | LGPL-3.0-or-later |
+| file-tools | defusedxml | 0.7.1 | PSF-2.0 |
+| file-tools | pypdf | 6.21.4 | BSD-3-Clause |
+| file-tools | Pillow | 13.0.0 | MIT-CMU |
+| file-tools | uvicorn | 0.54.0 | BSD-3-Clause |
+| file-tools | fastapi | 0.162.0 | MIT |
+| file-tools | pypdfium2 | 5.14.0 | Apache-2.0 OR BSD-3-Clause; bundled PDFium: BSD-3-Clause and third-party notices |
+| freecad | freecad-mcp-bridge | 4cb35facb1ed117bf4e2a2ed360d8d34e80a87f5 | MIT |
+
+FreeCAD uses Python supplied by its image; it has no separate pip requirements file.
+Its Dockerfile downloads the bridge listed above; preserve that archive's licence notices.
+Sources: [Python package metadata](https://pypi.org/),
+[FreeCAD licence](https://github.com/FreeCAD/FreeCAD/blob/main/LICENSE),
+[bridge licence](https://github.com/CREATeNG/freecad-mcp-bridge/blob/main/LICENSE).

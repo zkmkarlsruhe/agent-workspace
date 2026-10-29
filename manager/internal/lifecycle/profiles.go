@@ -140,8 +140,18 @@ func (s *Service) CreateAssistantProject(ctx context.Context, uid string, groups
 	}
 	p, err := s.st.ProjectByFolder(ctx, uid, np.Name)
 	if err == nil {
-		if p.Isolated || p.Assistant != pin {
+		if p.Isolated || p.Assistant.ID != pin.ID {
 			return ErrExists
+		}
+		if p.Assistant != pin {
+			active, err := s.Active(ctx, uid)
+			if err != nil {
+				return err
+			}
+			if len(active) > 0 {
+				return ErrBusy
+			}
+			return s.st.RefreshOpenCodeAssistant(ctx, p, pin)
 		}
 		return nil
 	}

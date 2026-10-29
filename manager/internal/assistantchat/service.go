@@ -45,11 +45,12 @@ type ToolCall struct {
 }
 
 type Service struct {
-	Store    *store.Store
-	Items    func(assistants.Definition) []catalog.Item
-	Tools    func(context.Context, store.User, func() (assistants.Pin, error)) ([]*sdk.Tool, error)
-	Call     func(context.Context, store.User, string, string, json.RawMessage, func() (assistants.Pin, error)) (*sdk.CallToolResult, error)
-	Complete func(context.Context, store.User, string, string, int, any, any) (json.RawMessage, error)
+	PreviewComplete func(context.Context, store.User, string, assistants.Definition, any) (json.RawMessage, error)
+	Store           *store.Store
+	Items           func(assistants.Definition) []catalog.Item
+	Tools           func(context.Context, store.User, func() (assistants.Pin, error)) ([]*sdk.Tool, error)
+	Call            func(context.Context, store.User, string, string, json.RawMessage, func() (assistants.Pin, error)) (*sdk.CallToolResult, error)
+	Complete        func(context.Context, store.User, string, string, int, any, any) (json.RawMessage, error)
 }
 
 type Choice struct {

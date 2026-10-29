@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
 
-"""Report the licences of all direct and indirect requirements in manager/go.mod."""
+"""Report Go dependencies, bundled assets, and declared service dependencies."""
 
 import argparse
 import json
@@ -12,6 +12,7 @@ import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
+UNKNOWN_BASE_LICENSE = "licence unknown, review required"
 
 
 def json_stream(text):
@@ -64,6 +65,30 @@ def module_licenses(directory):
     return "; ".join(sorted(licenses))
 
 
+# Reviewed direct Python requirements. A new package needs an explicit licence review.
+PYTHON_LICENSES = {
+    "rembg": "MIT", "vtracer": "MIT OR Apache-2.0", "cairosvg": "LGPL-3.0-or-later",
+    "defusedxml": "PSF-2.0", "pypdf": "BSD-3-Clause", "pillow": "MIT-CMU",
+    "uvicorn": "BSD-3-Clause", "fastapi": "MIT",
+    "pypdfium2": "Apache-2.0 OR BSD-3-Clause; bundled PDFium: BSD-3-Clause and third-party notices",
+}
+
+
+def python_services(root):
+    rows = []
+    for path in sorted((root / "services").glob("*/requirements.txt")):
+        for line in path.read_text().splitlines():
+            if not line.strip() or line.lstrip().startswith("#"):
+                continue
+            match = re.fullmatch(r"([A-Za-z0-9_-]+)(?:\[[^]]+\])?==([A-Za-z0-9.]+)", line.strip())
+            if not match or match[1].lower() not in PYTHON_LICENSES:
+                raise ValueError(f"{path.name}: unreviewed Python requirement: {line}")
+            rows.append((path.parent.name, match[1], match[2], PYTHON_LICENSES[match[1].lower()]))
+    if not rows:
+        raise ValueError("no service Python requirements found")
+    return rows
+
+
 def report(root, go):
     def run(*args):
         return subprocess.check_output([go, *args], cwd=root / "manager", text=True)
@@ -110,20 +135,24 @@ def report(root, go):
               "These are separate distributions, not relicensed under MIT. Debian contains packages",
               "under multiple licences, including GPL/LGPL; preserve each package's notices and source obligations.",
               "Node.js is installed from Debian packages, not a separate Node image. Versions follow the Debian snapshot.",
-              "This is a base/runtime inventory, not an inventory of every package in an image.", "",
+              "This is a base/runtime inventory, not an inventory of every package in an image.",
+              "The public example documents linuxserver/freecad as an external runtime image; it is not relicensed under MIT.",
+              "Unknown bases remain listed for review; CI uses --strict to reject them.", "",
               "| Component | Image/version | Licence(s) |", "|---|---|---|"]
     bases = set()
-    for path in sorted((root / "deploy/example").rglob("*Dockerfile")):
+    for path in sorted(list((root / "deploy/example").rglob("*Dockerfile"))
+                       + list((root / "services").glob("*/Dockerfile"))):
         for base in re.findall(r"^FROM\s+(\S+)", path.read_text(), re.M):
             if base == "scratch":
                 continue
-            family = base.split(":", 1)[0]
-            licenses = {"debian": "Various (including GPL, LGPL, BSD, MIT)",
+            family = base.split("@", 1)[0].split(":", 1)[0]
+            licenses = {"python": "PSF-2.0 (Python); various (Debian base)",
+                        "lscr.io/linuxserver/freecad": "GPL-3.0 (linuxserver.io image build files); LGPL-2.1 (FreeCAD); various (Ubuntu base)",
+                        "ghcr.io/linuxserver/freecad": "GPL-3.0 (linuxserver.io image build files); LGPL-2.1 (FreeCAD); various (Ubuntu base)",
+                        "debian": "Various (including GPL, LGPL, BSD, MIT)",
                         "golang": "BSD-3-Clause (Go); various (Debian base)",
                         "node": "MIT (Node.js); bundled dependencies and base have separate licences"}
-            if family not in licenses:
-                raise ValueError(f"unknown base image: {base}")
-            bases.add((family, base, licenses[family]))
+            bases.add((family, base, licenses.get(family, UNKNOWN_BASE_LICENSE)))
     if not bases:
         raise ValueError("no example base images found")
     lines.extend(f"| {name} | {version} | {licence} |" for name, version, licence in sorted(bases))
@@ -133,6 +162,23 @@ def report(root, go):
     lines += ["| Node.js | Debian nodejs package | MIT; bundled dependencies have separate licences |", "",
               "Sources: [Debian package copyright](https://www.debian.org/legal/licenses/),",
               "[Go LICENSE](https://go.dev/LICENSE), [Node.js LICENSE](https://github.com/nodejs/node/blob/main/LICENSE).", ""]
+    lines += ["## Python services", "",
+              "Direct requirements from services/*/requirements.txt; versions are read from those files.",
+              "This reviewed map is not a transitive environment lock or a full image SBOM.",
+              "Optional model weights, native libraries and base-image packages retain their own terms.", "",
+              "| Service | Package | Version | Licence(s) |", "|---|---|---|---|"]
+    lines.extend(f"| {service} | {name} | {version} | {licence} |"
+                 for service, name, version, licence in python_services(root))
+    bridge = re.search(r"https://codeload.github.com/CREATeNG/freecad-mcp-bridge/tar.gz/([0-9a-f]{40})",
+                       (root / "services/freecad/Dockerfile").read_text())
+    if bridge is None or bridge[1] != "4cb35facb1ed117bf4e2a2ed360d8d34e80a87f5":
+        raise ValueError("FreeCAD bridge revision changed; review its licence")
+    lines.append(f"| freecad | freecad-mcp-bridge | {bridge[1]} | MIT |")
+    lines += ["", "FreeCAD uses Python supplied by its image; it has no separate pip requirements file.",
+              "Its Dockerfile downloads the bridge listed above; preserve that archive's licence notices.",
+              "Sources: [Python package metadata](https://pypi.org/),",
+              "[FreeCAD licence](https://github.com/FreeCAD/FreeCAD/blob/main/LICENSE),",
+              "[bridge licence](https://github.com/CREATeNG/freecad-mcp-bridge/blob/main/LICENSE).", ""]
     return "\n".join(lines)
 
 
@@ -140,12 +186,15 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--go", default=os.environ.get("GO", "go"))
     parser.add_argument("--output", type=Path, default=ROOT / "THIRD_PARTY_LICENSES.md")
+    parser.add_argument("--strict", action="store_true", help="fail if any base image licence needs review")
     args = parser.parse_args()
     try:
         text = report(ROOT, args.go)
     except (ValueError, OSError, subprocess.CalledProcessError) as error:
         parser.exit(1, f"license-report: {error}\n")
     args.output.write_text(text, encoding="utf-8")
+    if args.strict and UNKNOWN_BASE_LICENSE in text:
+        parser.exit(1, f"license-report: {UNKNOWN_BASE_LICENSE}; see {args.output}\n")
 
 
 if __name__ == "__main__":

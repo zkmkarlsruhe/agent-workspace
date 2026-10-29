@@ -138,6 +138,30 @@ func HTML(src []byte, fallback string) (string, error) {
 	return out.String(), err
 }
 
+// Fragment renders safe Markdown using the same HTML/link/image policy as exports.
+func Fragment(src []byte) (template.HTML, error) {
+	if len(src) > MaxMarkdown {
+		return "", ErrTooLarge
+	}
+	var out bytes.Buffer
+	doc := md.Parser().Parse(text.NewReader(src))
+	ast.Walk(doc, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
+		if h, ok := n.(*ast.Heading); ok && entering {
+			h.Level = min(h.Level+1, 6)
+			if id, ok := h.AttributeString("id"); ok {
+				if value, ok := id.([]byte); ok {
+					h.SetAttributeString("id", append([]byte("knowledge-heading-"), value...))
+				}
+			}
+		}
+		return ast.WalkContinue, nil
+	})
+	if err := md.Renderer().Render(&out, src, doc); err != nil {
+		return "", err
+	}
+	return template.HTML(out.String()), nil
+}
+
 func plain(n ast.Node, src []byte) string {
 	var b strings.Builder
 	ast.Walk(n, func(c ast.Node, entering bool) (ast.WalkStatus, error) {

@@ -19,6 +19,7 @@ import (
 
 	"github.com/zkmkarlsruhe/agent-workspace/manager/internal/gateway/llm"
 	"github.com/zkmkarlsruhe/agent-workspace/manager/internal/instance"
+	"github.com/zkmkarlsruhe/agent-workspace/manager/internal/lifecycle"
 	"github.com/zkmkarlsruhe/agent-workspace/manager/internal/store"
 )
 
@@ -70,9 +71,16 @@ func (s *Server) imageGenerate(ctx context.Context, u store.User, session string
 	if session == "" {
 		return errorResult(ctx, "image_generate needs a session in a project."), m
 	}
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Minute)
+	defer cancel()
+	release, err := acquireImageSlot(ctx)
+	if err != nil {
+		return errorResult(ctx, "Image processing cancelled: %s", err), m
+	}
+	defer release()
 	dir, err := s.Files.SessionDir(ctx, u.UID, session)
 	project, ok := strings.CutPrefix(dir, workspace)
-	if err != nil || !ok || strings.Contains(project, "/") {
+	if err != nil || !ok || !lifecycle.ValidProject(project) {
 		s.Log.WarnContext(ctx, "image_generate: session dir", "uid", u.UID, "err", err)
 		return errorResult(ctx, "The project folder of this session is unknown."), m
 	}
@@ -82,17 +90,34 @@ func (s *Server) imageGenerate(ctx context.Context, u store.User, session string
 		if !s.CanEdit {
 			return errorResult(ctx, "Editing an existing image is not available right now, only creating new images. Leave out source_image."), m
 		}
-		img, _, fail := s.readImage(ctx, u, session, a.SourceImage, &m)
-		if fail != nil {
-			return *fail, m
+		raw, _, _, err := s.projectInput(ctx, u, session, a.SourceImage, imageExts...)
+		if err != nil {
+			return errorResult(ctx, "Cannot read source: %s", err), m
+		}
+		m.bytesIn = len(raw)
+		if err := ctx.Err(); err != nil {
+			return errorResult(ctx, "Image processing cancelled: %s", err), m
+		}
+		img, err := imagePrepared(raw, 0, false)
+		if errors.Is(err, errAnimatedGIF) {
+			return errorResult(ctx, "Animated GIF edits are not supported; select a frame first."), m
+		}
+		if err != nil {
+			return errorResult(ctx, "Cannot decode edit source: %s", err), m
+		}
+		if err := ctx.Err(); err != nil {
+			return errorResult(ctx, "Image processing cancelled: %s", err), m
 		}
 		var b bytes.Buffer
-		png.Encode(&b, img)
+		if err := png.Encode(&b, img); err != nil || b.Len() > maxImageBytes {
+			return errorResult(ctx, "Encoded edit source exceeds 20 MiB or could not be encoded."), m
+		}
 		sourceImage, source = b.Bytes(), "compositeWithTrainedAlgorithmicMedia"
 	}
-	cctx, cancel := context.WithTimeout(ctx, 3*time.Minute)
-	defer cancel()
-	out, model, err := s.Generate(cctx, u, session, strings.TrimSpace(a.Prompt), size, sourceImage)
+	if err := ctx.Err(); err != nil {
+		return errorResult(ctx, "Image processing cancelled: %s", err), m
+	}
+	out, model, err := s.Generate(ctx, u, session, strings.TrimSpace(a.Prompt), size, sourceImage)
 	switch {
 	case errors.Is(err, llm.ErrDayCap):
 		m.status = http.StatusTooManyRequests
@@ -100,10 +125,16 @@ func (s *Server) imageGenerate(ctx context.Context, u store.User, session string
 	case errors.Is(err, llm.ErrBusy):
 		m.status = http.StatusTooManyRequests
 		return errorResult(ctx, "Too many requests at once, please wait a moment."), m
+	case errors.Is(err, llm.ErrImageUncertain):
+		m.status = http.StatusBadGateway
+		return errorResult(ctx, "IMAGE_OUTCOME_UNKNOWN: The provider may have processed this request. No fallback was started. Do not repeat it automatically."), m
 	case err != nil:
 		s.Log.WarnContext(ctx, "image_generate: generate", "uid", u.UID, "err", err)
 		m.status = http.StatusBadGateway
 		return errorResult(ctx, "The image model is not reachable right now or refused the description. Try again later or change the description."), m
+	}
+	if err := ctx.Err(); err != nil {
+		return errorResult(ctx, "Image processing cancelled: %s", err), m
 	}
 	m.target = model
 	now := time.Now()
@@ -112,6 +143,9 @@ func (s *Server) imageGenerate(ctx context.Context, u store.User, session string
 		s.Log.WarnContext(ctx, "image_generate: answer", "uid", u.UID, "model", model, "bytes", len(out), "err", err)
 		m.status = http.StatusBadGateway
 		return errorResult(ctx, "The image model returned no usable image. Try again later."), m
+	}
+	if err := ctx.Err(); err != nil {
+		return errorResult(ctx, "Image processing cancelled: %s", err), m
 	}
 	rel, err := s.Files.WriteNew(ctx, u.UID, project, instance.Current().Folders.Results+"/"+aiFileName(a.Filename, now), bytes.NewReader(labelled))
 	if err != nil {
@@ -122,40 +156,30 @@ func (s *Server) imageGenerate(ctx context.Context, u store.User, session string
 	return toolResult{
 		Content: textResult(ctx, "Image created: %s (%s in the project, model %s). It is AI-generated: label it as AI-generated when passing it on or publishing it (EU AI Act Art. 50), e.g. with \"AI-generated with %s\". The label is also in the file's metadata. Download it in the portal under the project.",
 			full, rel, model, model),
-		Structured: map[string]any{"image": full, "file": rel, "model": model, "bytes": len(labelled)},
+		Structured: map[string]any{"schema_version": 1, "status": "complete", "outputs": []fileArtifact{{Path: full, MediaType: "image/png", Role: "result", SHA256: digest(labelled)}}, "warnings": []string{}, "image": full, "file": rel, "model": model, "bytes": len(labelled)},
 	}, m
 }
 
 // kiPNG returns img as PNG with the labelling text chunks right after IHDR:
 // Software, Comment and XMP with the IPTC DigitalSourceType. Other formats
-// are re-encoded first; a PNG keeps its pixels and chunks (C2PA, if any).
+// are re-encoded too; upstream ancillary chunks are discarded.
 func aiPNG(img []byte, comment, sourceType string) ([]byte, error) {
-	const sig = "\x89PNG\r\n\x1a\n"
-	if !bytes.HasPrefix(img, []byte(sig)) {
-		cfg, _, err := image.DecodeConfig(bytes.NewReader(img))
-		if err != nil {
-			return nil, err
-		}
-		if cfg.Width <= 0 || cfg.Height <= 0 || cfg.Width > maxImagePixels/cfg.Height {
-			return nil, errImagePixels
-		}
-		if imageDecodeSlots != nil {
-			imageDecodeSlots <- struct{}{}
-			defer func() { <-imageDecodeSlots }()
-		}
-		dec, _, err := image.Decode(bytes.NewReader(img))
-		if err != nil {
-			return nil, err
-		}
-		var b bytes.Buffer
-		if err := png.Encode(&b, dec); err != nil {
-			return nil, err
-		}
-		img = b.Bytes()
-	}
-	if _, err := png.DecodeConfig(bytes.NewReader(img)); err != nil {
+	cfg, _, err := image.DecodeConfig(bytes.NewReader(img))
+	if err != nil {
 		return nil, err
 	}
+	if cfg.Width <= 0 || cfg.Height <= 0 || cfg.Width > maxImagePixels/cfg.Height {
+		return nil, errImagePixels
+	}
+	decoded, _, err := image.Decode(bytes.NewReader(img))
+	if err != nil {
+		return nil, err
+	}
+	var b bytes.Buffer
+	if err := png.Encode(&b, decoded); err != nil {
+		return nil, err
+	}
+	img = b.Bytes()
 	const ihdrEnd = 8 + 8 + 13 + 4 // signature, IHDR length+type, IHDR data, CRC
 	xmp := `<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">` +
 		`<rdf:Description xmlns:Iptc4xmpExt="http://iptc.org/std/Iptc4xmpExt/2008-02-29/" xmlns:dc="http://purl.org/dc/elements/1.1/" ` +
@@ -208,7 +232,17 @@ var imageGenDef = map[string]any{
 			"prompt":       map[string]any{"type": "string", "minLength": 1, "maxLength": maxPrompt, "description": "What the image should show, concretely with subject, style, colours and light"},
 			"filename":     map[string]any{"type": "string", "maxLength": 200, "description": "short name without extension, e.g. poster-summer-party; -ki and .png are added; empty = bild-<date>"},
 			"aspect":       map[string]any{"type": "string", "enum": []string{"square", "landscape", "portrait"}, "default": "landscape"},
-			"source_image": map[string]any{"type": "string", "maxLength": 1024, "description": "Image in the project as the starting image, changed according to the description, e.g. [[folders.inbox]]/photo.jpg; empty = new image"},
+			"source_image": map[string]any{"type": "string", "maxLength": 1024, "description": "Image in this session's project as the starting image, changed according to the description, e.g. [[folders.inbox]]/photo.jpg; empty = new image. Animated GIFs are not supported."},
 		},
 	},
+}
+
+func imageEditTool() map[string]any {
+	t := imageGenTool(true)
+	t["name"], t["title"] = "image_edit", "Edit image"
+	t["description"] = "Changes the content of a source image according to a prompt. Preserves the source; saves a new PNG and returns its path. Use image_transform for exact crops, resizing and conversion. The edit provider controls the output dimensions. Animated GIFs are refused; select a frame first."
+	schema := maps.Clone(t["inputSchema"].(map[string]any))
+	schema["required"] = []string{"prompt", "source_image"}
+	t["inputSchema"] = schema
+	return t
 }

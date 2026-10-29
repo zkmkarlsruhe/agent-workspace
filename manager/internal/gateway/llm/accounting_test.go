@@ -97,7 +97,7 @@ func TestChargeRolePrices(t *testing.T) {
 func TestEmbeddingUnknownCost(t *testing.T) {
 	for _, price := range []float64{0, 2} {
 		e := store.UsageEvent{Capability: "embedding", Status: 200, InTokens: new(int64(100))}
-		charge(&e, instance.Accounting{EmbeddingEURPerMillion: price})
+		charge(&e, instance.Accounting{EmbeddingEURPerMillion: price, LargestContext: 262144, MaxOutputTokens: 32768})
 		if price == 0 {
 			if e.CostEUR != nil || e.CostSource != "unknown" {
 				t.Fatalf("%+v", e)

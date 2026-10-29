@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "name": "office",
+  "version": "0.1.0",
+  "runs": "builtin",
+  "tools": [
+    "office_status",
+    "office_documents",
+    "office_open",
+    "office_read",
+    "office_find",
+    "office_capture",
+    "office_replace",
+    "office_close"
+  ],
+  "scopes": [
+    "nextcloud:live-edit"
+  ],
+  "holds_personal_data": true,
+  "health": "optional",
+  "requires_opencode": ">=2.2.0 <2.3",
+  "requires": [
+    "nextcloud"
+  ]
+}

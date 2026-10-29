@@ -135,7 +135,7 @@ func read(s *Server, args string) (toolResult, callMeta) {
 func TestVetAddr(t *testing.T) {
 	for a, ok := range map[string]bool{
 		"1.1.1.1": true, "2606:4700:4700::1111": true, "64:ff9b::101:101": true, "8.8.8.8": true, "8.8.4.4": true,
-		"10.1.2.3": false, "172.16.0.1": false, "192.168.232.1": false, "127.0.0.1": false, "0.0.0.0": false,
+		"10.1.2.3": false, "172.16.0.1": false, "192.0.2.1": false, "127.0.0.1": false, "0.0.0.0": false,
 		"169.254.169.254": false, "100.64.0.1": false,
 		"224.0.0.1": false, "255.255.255.255": false, "::1": false, "::": false, "fe80::1": false, "fc00::1": false,
 		"fd12::1": false, "::ffff:10.0.0.1": false, "::ffff:127.0.0.1": false, "64:ff9b::a00:1": false,

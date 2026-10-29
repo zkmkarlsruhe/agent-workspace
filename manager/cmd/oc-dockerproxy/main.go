@@ -52,6 +52,8 @@ func run(log *slog.Logger) error {
 		return fmt.Errorf("OC_PROXY_SOCKET_OWNER: %w", err)
 	}
 	pol := dockerproxy.Policy{
+		FreeCADImage:  env("OC_FREECAD_IMAGE", ""),
+		OfficeImage:   env("OC_OFFICE_IMAGE", ""),
 		ImageRepo:     dockerproxy.ImageRepo(img),
 		RuntimeImage:  img,
 		UserNetPrefix: env("OC_USER_NET_PREFIX", "10.90"),

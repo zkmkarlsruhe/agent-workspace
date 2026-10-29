@@ -52,7 +52,9 @@ func (s *Service) collectIfIdle(ctx context.Context, uid string, r running) {
 	}
 	busy := len(active) > 0
 	if !busy {
-		s.collect(ctx, uid)
+		if err := s.collect(ctx, uid); err != nil {
+			return
+		}
 	}
 	s.mu.Lock()
 	if cur := s.run[uid]; cur != nil {
@@ -69,24 +71,25 @@ func (s *Service) collectIfIdle(ctx context.Context, uid string, r running) {
 // asked; the container is never started for it. Errors are logged and end
 // the collection; the next call retries what is still unchanged in the store.
 // Without the evaluation (CollectChats false) nothing is stored.
-func (s *Service) collect(ctx context.Context, uid string) {
+func (s *Service) collect(ctx context.Context, uid string) error {
 	if !s.CollectChats {
-		return
+		return nil
 	}
 	c, ok := s.Client(uid)
 	if !ok {
-		return
+		return ErrNotRunning
 	}
 	ctx, cancel := context.WithTimeout(ctx, time.Minute)
 	defer cancel()
 	n, err := s.collectChats(ctx, uid, c)
 	if err != nil {
 		s.log.WarnContext(ctx, "chat collection failed", "uid", uid, "stored", n, "err", err)
-		return
+		return err
 	}
 	if n > 0 {
 		s.log.InfoContext(ctx, "chats collected", "uid", uid, "stored", n)
 	}
+	return nil
 }
 
 func (s *Service) collectChats(ctx context.Context, uid string, c *ocapi.Client) (int, error) {

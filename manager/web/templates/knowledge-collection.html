@@ -1,0 +1,29 @@
+{{define "title"}}{{.D.Collection.Title}}{{end}}
+{{define "content"}}
+<p class="breadcrumb"><a href="/knowledge">{{t "Knowledge"}}</a></p>
+<h1>{{.D.Collection.Title}}</h1>
+<p class="small muted">{{t "Limits: 128 KiB per page, 16 KiB of sources, 1000 pages, 10000 revisions and 16 MiB of retained text per knowledge base."}}</p><p>{{.D.Collection.Description}}</p>
+<p>{{t "Audience"}}: {{if .D.Collection.TeamID}}<a href="/teams/{{.D.Collection.TeamID}}">{{.D.Collection.TeamName}}</a>{{else}}{{t "Personal"}}{{end}}</p>
+{{if .D.Collection.TeamID}}<p>{{t "All team members can read, edit and copy these pages and their history. Removing access cannot recall copies already received."}}</p>{{end}}
+{{if .D.Collection.Writable}}<a class="btn" href="/knowledge/{{.D.Collection.ID}}/pages/new">{{t "New page"}}</a>{{else}}<p>{{t "This knowledge base is read-only."}}</p>{{end}}
+<form class="form section" method="get" action="/knowledge/{{.D.Collection.ID}}"><label for="knowledge-search">{{t "Search knowledge"}}</label><input class="input" id="knowledge-search" name="q" value="{{.D.Query}}" maxlength="300"><button class="btn" type="submit">{{t "Search"}}</button></form>
+{{range .D.Hits}}<article class="section"><h2><a href="/knowledge/{{.CollectionID}}/pages/{{.PageID}}?revision={{.Revision}}">{{.Title}}</a></h2><p>{{.Snippet}}</p></article>{{end}}
+{{if .D.Collection.Writable}}<details class="section"><summary>{{t "Import Markdown"}}</summary>
+<form class="form" method="post" action="/knowledge/{{.D.Collection.ID}}/markdown" enctype="multipart/form-data">
+<input type="hidden" name="account" value="{{.D.Actor.Stamp}}"><input type="hidden" name="page" value="{{.D.Page.ID}}">
+<div class="field"><label for="markdown-title">{{t "Title"}}</label><input class="input" id="markdown-title" name="title" maxlength="100" required></div>
+<div class="field"><label for="markdown-file">{{t "Markdown file"}}</label><input id="markdown-file" name="markdown" type="file" accept=".md,.txt,text/markdown,text/plain" required></div>
+<div class="field"><label for="markdown-sources">{{t "Sources and capture dates"}}</label><textarea class="textarea" id="markdown-sources" name="sources" maxlength="16384" rows="3"></textarea></div>
+<button class="btn" type="submit">{{t "Import Markdown"}}</button></form></details>{{end}}
+<h2>{{t "Pages"}}</h2><ul>{{range .D.Pages}}<li><a href="/knowledge/{{.CollectionID}}/pages/{{.ID}}">{{.Title}}</a>{{if .Archived}} · {{t "Archived"}}{{end}}</li>{{else}}<li>{{t "No pages yet."}}</li>{{end}}</ul>
+{{if eq .D.Collection.Role "admin"}}
+<p><a href="/knowledge/{{.D.Collection.ID}}/export">{{t "Export knowledge and history"}}</a></p>
+<details class="section"><summary>{{t "Knowledge base settings"}}</summary><form class="form" method="post" action="/knowledge/{{.D.Collection.ID}}">
+<input type="hidden" name="account" value="{{.D.Actor.Stamp}}"><input type="hidden" name="revision" value="{{.D.Collection.Revision}}">
+<div class="field"><label for="collection-title">{{t "Title"}}</label><input class="input" id="collection-title" name="title" value="{{.D.Collection.Title}}" maxlength="100" required></div>
+<div class="field"><label for="collection-description">{{t "Purpose"}}</label><textarea class="textarea" id="collection-description" name="description" maxlength="4000">{{.D.Collection.Description}}</textarea></div>
+<label for="collection-archived"><input id="collection-archived" type="checkbox" name="archived" value="true"{{if .D.Collection.Archived}} checked{{end}}> {{t "Archived"}}</label><button class="btn" type="submit">{{t "Save settings"}}</button></form></details>
+{{if .D.Collection.Archived}}<details class="section"><summary>{{t "Permanently delete knowledge base"}}</summary><p>{{t "This permanently removes every page and revision from the application. Existing exports and backups remain independent copies."}}</p>
+<form method="post" action="/knowledge/{{.D.Collection.ID}}/purge"><input type="hidden" name="account" value="{{.D.Actor.Stamp}}"><input type="hidden" name="revision" value="{{.D.Collection.Revision}}"><label for="collection-purge"><input id="collection-purge" type="checkbox" name="confirm" value="purge" required> {{t "Delete permanently, including history"}}</label><button class="btn" type="submit">{{t "Delete permanently"}}</button></form></details>{{end}}
+{{end}}
+{{end}}

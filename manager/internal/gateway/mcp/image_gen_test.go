@@ -45,7 +45,7 @@ func TestImageGenerate(t *testing.T) {
 	var genErr error
 	gen := func(_ context.Context, u store.User, session, prompt, size string, sourceImage []byte) ([]byte, string, error) {
 		gotPrompt, gotSize, gotSourceImage = prompt, size, sourceImage
-		return answer, "workspace/gwdg-image", genErr
+		return answer, "workspace/example-image", genErr
 	}
 	srv := func(canEdit bool) *Server {
 		return New(Server{SearXNG: &url.URL{}, SlotOf: config.Config{UserNetPrefix: "10.90"}.SlotOf, Users: users{}, Usage: r,
@@ -68,7 +68,7 @@ func TestImageGenerate(t *testing.T) {
 	}
 
 	res := call(s, `{"prompt":"Ein rotes Fahrrad vor dem Workspace","filename":"Fahrrad"}`)
-	if res.IsError || !strings.Contains(res.Content[0].Text, "/workspace/bericht/results/fahrrad-ki.png") || !strings.Contains(res.Content[0].Text, "KI-generiert mit workspace/gwdg-image") {
+	if res.IsError || !strings.Contains(res.Content[0].Text, "/workspace/bericht/results/fahrrad-ki.png") || !strings.Contains(res.Content[0].Text, "KI-generiert mit workspace/example-image") {
 		t.Fatalf("result %+v", res)
 	}
 	if gotPrompt != "Ein rotes Fahrrad vor dem Workspace" || gotSize != "1536x1024" || gotSourceImage != nil {
@@ -78,13 +78,13 @@ func TestImageGenerate(t *testing.T) {
 	if _, err := png.Decode(bytes.NewReader(out)); err != nil {
 		t.Fatalf("written file is no valid PNG: %v", err)
 	}
-	for _, want := range []string{"Software\x00Agent Workspace", "Comment\x00\x00\x00\x00\x00KI-generiert mit workspace/gwdg-image, Agent Workspace, 20",
+	for _, want := range []string{"Software\x00Agent Workspace", "Comment\x00\x00\x00\x00\x00KI-generiert mit workspace/example-image, Agent Workspace, 20",
 		"digitalsourcetype/trainedAlgorithmicMedia"} {
 		if !bytes.Contains(out, []byte(want)) {
 			t.Errorf("label %q missing", want)
 		}
 	}
-	if e := r.ev[len(r.ev)-1]; e.Capability != "image" || e.Target != "workspace/gwdg-image" || e.Status != 200 {
+	if e := r.ev[len(r.ev)-1]; e.Capability != "image" || e.Target != "workspace/example-image" || e.Status != 200 {
 		t.Errorf("usage %+v", e)
 	}
 
@@ -126,5 +126,47 @@ func TestImageGenerate(t *testing.T) {
 	}
 	if out := ff.written["bericht/results/rad-ki.png"]; !bytes.Contains(out, []byte("compositeWithTrainedAlgorithmicMedia")) {
 		t.Errorf("edit not labelled as composite: %d bytes, files %v", len(out), len(ff.written))
+	}
+}
+
+func TestAIPNGDropsUpstreamChunks(t *testing.T) {
+	original := []byte(pngOf(8, 8))
+	const ihdrEnd = 33
+	var upstream bytes.Buffer
+	upstream.Write(original[:ihdrEnd])
+	for _, typ := range []string{"tEXt", "iTXt", "tEXt", "caBX"} {
+		pngChunk(&upstream, typ, "untrusted-metadata\x00"+strings.Repeat("payload", 1000))
+	}
+	upstream.Write(original[ihdrEnd:])
+	upstream.WriteString("untrusted-trailing-data")
+	out, err := aiPNG(upstream.Bytes(), "trusted label", "trainedAlgorithmicMedia")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Contains(out, []byte("untrusted")) || bytes.Contains(out, []byte("payload")) {
+		t.Fatal("retained upstream metadata")
+	}
+	if !bytes.Contains(out, []byte("trusted label")) {
+		t.Fatal("lost local label")
+	}
+	got, err := png.Decode(bytes.NewReader(out))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want, err := png.Decode(bytes.NewReader(original))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Bounds() != want.Bounds() {
+		t.Fatal("changed dimensions")
+	}
+	for y := 0; y < 8; y++ {
+		for x := 0; x < 8; x++ {
+			r, g, b, a := got.At(x, y).RGBA()
+			wr, wg, wb, wa := want.At(x, y).RGBA()
+			if r != wr || g != wg || b != wb || a != wa {
+				t.Fatal("changed pixels")
+			}
+		}
 	}
 }

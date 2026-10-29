@@ -140,6 +140,21 @@ func init() {
 // Current is immutable after selection. One manager process serves one instance.
 func Current() *Definition { return selected.Load() }
 
+// WithAssistants builds an immutable runtime snapshot from database-owned settings.
+func (d *Definition) WithAssistants(definitions []assistants.Definition) (*Definition, error) {
+	next := *d
+	next.Assistants = slices.Clone(definitions)
+	next.tokenValues = nil
+	if err := next.Validate(); err != nil {
+		return nil, err
+	}
+	next.tokenValues = next.buildTokens()
+	return &next, nil
+}
+
+// ActivateAssistants swaps a validated snapshot without changing process-wide clocks.
+func ActivateAssistants(d *Definition) { selected.Store(d) }
+
 // Location is the validated timezone of the selected instance.
 func Location() *time.Location { return Current().location }
 
@@ -218,7 +233,7 @@ func loadDefaultWith(files fs.FS, manifests []integration.Manifest) (*Definition
 func Parse(b []byte) (*Definition, error) { return parse(b, nil) }
 
 func parse(b []byte, manifests []integration.Manifest) (*Definition, error) {
-	d := &Definition{Timezone: "UTC", manifests: manifests, FootprintAssumptions: FootprintAssumptions{PUE: 1.2, GridGPerKWh: 344}, Accounting: DefaultAccounting(), Capabilities: Capabilities{Projects: true, ProjectDefault: CapabilityDefault{Mode: "all"}, LegacyDefault: "global"}, Folders: Folders{
+	d := &Definition{manifests: manifests, FootprintAssumptions: FootprintAssumptions{PUE: 1.2, GridGPerKWh: 344}, Accounting: DefaultAccounting(), Capabilities: Capabilities{Projects: true, ProjectDefault: CapabilityDefault{Mode: "all"}, LegacyDefault: "global"}, Folders: Folders{
 		Inbox: "inbox", Results: "results", Work: "work",
 		ProjectMeta: ".project", Brief: "brief.md", Trash: ".trash",
 	}}
@@ -230,6 +245,28 @@ func parse(b []byte, manifests []integration.Manifest) (*Definition, error) {
 	var extra any
 	if err := dec.Decode(&extra); err != io.EOF {
 		return nil, errors.New("instance: expected exactly one YAML document")
+	}
+	var keys map[string]yaml.Node
+	if err := yaml.Unmarshal(b, &keys); err != nil {
+		return nil, err
+	}
+	if d.Schema == 1 {
+		var missing []string
+		if _, ok := keys["timezone"]; !ok {
+			d.Timezone = "Europe/Berlin"
+			missing = append(missing, "timezone")
+		}
+		if _, ok := d.Copy["folder_name_prompt"]; !ok {
+			const prompt = "Suggest a short German folder name for the following task: lower case, words separated by hyphens, at most four words. Answer with the name only."
+			if d.Copy == nil {
+				d.Copy = map[string]Localized{}
+			}
+			d.Copy["folder_name_prompt"] = Localized{EN: prompt, DE: prompt}
+			missing = append(missing, "copy.folder_name_prompt")
+		}
+		if len(missing) > 0 {
+			slog.Warn("instance: schema-1 compatibility defaults applied", "missing_keys", strings.Join(missing, ", "))
+		}
 	}
 	if d.Accounting.Prices == nil {
 		d.Accounting.Prices = map[string]TokenPrice{"standard": {Input: 0.60, Output: 3.60}, "fast": {Input: 0.60, Output: 3.60}, "thorough": {Input: 0.60, Output: 3.60}}
@@ -259,7 +296,7 @@ var OverrideKeys = []string{
 	"OC_IDENTITY_GROUPS_SEPARATOR", "OC_LOGOUT_URL",
 	"OC_DOMAIN", "OC_REQUIRED_GROUP", "OC_ADMIN_GROUP", "LITELLM_BASE_URL", "OC_SEARXNG_URL",
 	"OC_LDAP_URL", "OC_LDAP_BASE_DN", "OC_LDAP_BIND_DN", "OC_IDENTITY_ISSUER", "OC_IDENTITY_SUBJECT_HEADER",
-	"OC_VISION_MODEL", "OC_IMAGE_MODELS", "OC_IMAGE_EDIT_MODEL", "OC_NEXTCLOUD_URL", "OC_ROOMS_URL", "OC_BIKES_URL", "OC_PDF_URL",
+	"OC_VISION_MODEL", "OC_HANDWRITING_MODEL", "OC_IMAGE_MODELS", "OC_IMAGE_EDIT_MODEL", "OC_NEXTCLOUD_URL", "OC_ROOMS_URL", "OC_BIKES_URL", "OC_PDF_URL",
 }
 
 func (d *Definition) Validate() error {

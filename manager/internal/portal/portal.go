@@ -30,12 +30,14 @@ import (
 	"github.com/zkmkarlsruhe/agent-workspace/manager/internal/consent"
 	"github.com/zkmkarlsruhe/agent-workspace/manager/internal/instance"
 	"github.com/zkmkarlsruhe/agent-workspace/manager/internal/logx"
+	"github.com/zkmkarlsruhe/agent-workspace/manager/internal/store"
 )
 
 // UserGroup is the Authentik group that grants access (live: "opencode-users").
 const UserGroup = "opencode-users"
 
 type Identity struct {
+	Slug     string
 	UID      string // stored account key, 64 hex
 	Blocked  bool
 	Username string
@@ -57,6 +59,8 @@ func IdentityFrom(ctx context.Context) (Identity, bool) {
 }
 
 type Config struct {
+	Knowledge         *store.Store // nil disables authored knowledge and teams in the portal.
+	KnowledgeReadOnly bool         // Keep export, cleanup and recovery when the integration is disabled.
 	// Capabilities describes runtime services/models actually wired by the manager.
 	Capabilities   map[string]bool
 	LogoutURL      string // OC_LOGOUT_URL; empty uses config.DefaultLogoutURL
@@ -110,39 +114,41 @@ type Config struct {
 }
 
 type Server struct {
-	capabilities   map[string]bool
-	logoutURL      string
-	taskAssistants *assistantchat.Service
-	be             Backend
-	tools          Tools
-	conns          Connections
-	onboard        Onboarding
-	sync           Sync
-	settings       Settings
-	consent        Consent
-	admin          Admin
-	adminGroup     string
-	group          string
-	dayCap         float64
-	idle           time.Duration
-	maxRun         int
-	dayFrom        func(time.Time) time.Time
-	spent          func(ctx context.Context, uid string, since time.Time) (float64, error)
-	origin         string
-	maxUp          int64
-	pdf            func(ctx context.Context, md []byte, name string) ([]byte, error)
-	prefs          Prefs
-	feedback       Feedback
-	pages          map[string]map[string]*template.Template // language, page
-	pending        pendingStore
-	now            func() time.Time
+	knowledgeReadOnly bool
+	knowledge         *store.Store
+	capabilities      map[string]bool
+	logoutURL         string
+	taskAssistants    *assistantchat.Service
+	be                Backend
+	tools             Tools
+	conns             Connections
+	onboard           Onboarding
+	sync              Sync
+	settings          Settings
+	consent           Consent
+	admin             Admin
+	adminGroup        string
+	group             string
+	dayCap            float64
+	idle              time.Duration
+	maxRun            int
+	dayFrom           func(time.Time) time.Time
+	spent             func(ctx context.Context, uid string, since time.Time) (float64, error)
+	origin            string
+	maxUp             int64
+	pdf               func(ctx context.Context, md []byte, name string) ([]byte, error)
+	prefs             Prefs
+	feedback          Feedback
+	pages             map[string]map[string]*template.Template // language, page
+	pending           pendingStore
+	now               func() time.Time
 
 	identityGuard IdentityGuard
 }
 
 // New returns the portal handler. Mount it on the apps.example.org host.
 func New(cfg Config) (http.Handler, error) {
-	s := &Server{capabilities: cfg.Capabilities, logoutURL: cmp.Or(cfg.LogoutURL, config.DefaultLogoutURL), taskAssistants: cfg.TaskAssistants, identityGuard: cfg.IdentityGuard, be: cfg.Backend, tools: cfg.Tools, conns: cfg.Connections, onboard: cfg.Onboarding, sync: cfg.Sync, settings: cfg.Settings, consent: cfg.Consent, admin: cfg.Admin, adminGroup: cfg.AdminGroup, prefs: cfg.Prefs, feedback: cfg.Feedback, dayCap: cfg.DayCapEUR, idle: cfg.IdleTimeout, maxRun: cfg.MaxRunning, dayFrom: cfg.DayStart, spent: cfg.Spent, origin: cfg.Origin, group: cfg.Group, maxUp: cfg.UploadMaxBytes, pdf: cfg.PDF, now: time.Now}
+	s := &Server{knowledgeReadOnly: cfg.KnowledgeReadOnly, knowledge: cfg.Knowledge, capabilities: cfg.Capabilities, logoutURL: cmp.Or(cfg.LogoutURL, config.DefaultLogoutURL), taskAssistants: cfg.TaskAssistants, identityGuard: cfg.IdentityGuard, be: cfg.Backend, tools: cfg.Tools, conns: cfg.Connections, onboard: cfg.Onboarding, sync: cfg.Sync, settings: cfg.Settings, consent: cfg.Consent, admin: cfg.Admin, adminGroup: cfg.AdminGroup, prefs: cfg.Prefs, feedback: cfg.Feedback, dayCap: cfg.DayCapEUR, idle: cfg.IdleTimeout, maxRun: cfg.MaxRunning, dayFrom: cfg.DayStart, spent: cfg.Spent, origin: cfg.Origin, group: cfg.Group, maxUp: cfg.UploadMaxBytes, pdf: cfg.PDF, now: time.Now}
 	if s.maxUp <= 0 {
 		s.maxUp = 2 << 30
 	}
@@ -202,6 +208,8 @@ func New(cfg Config) (http.Handler, error) {
 	page("GET /usage", s.usage)
 	page("GET /usage/method", s.usageMethod)
 	s.taskAssistantRoutes(page)
+	s.gapRoutes(page)
+	s.knowledgeRoutes(page)
 	s.consentRoutes(page)
 	s.toolsRoutes(page)
 	s.connectionsRoutes(page)
@@ -280,10 +288,14 @@ func (s *Server) auth(h func(http.ResponseWriter, *http.Request, Identity)) http
 
 // view is the data every template gets.
 type view struct {
-	Capabilities   map[string]bool
-	CapabilityCopy map[string]string
-	ProjectScoped  bool
-	Watchdog       watchdogView
+	TeamInvitations   []store.Team
+	InvitationAccount string
+	KnowledgeWrite    bool
+	Knowledge         bool
+	Capabilities      map[string]bool
+	CapabilityCopy    map[string]string
+	ProjectScoped     bool
+	Watchdog          watchdogView
 
 	User           Identity
 	Nav            string
@@ -328,6 +340,7 @@ func (s *Server) parse(assets fs.FS) error {
 func (s *Server) funcs(l string) template.FuncMap {
 	return template.FuncMap{
 		"supportParts": supportParts,
+		"hasString":    func(values []string, value string) bool { return slices.Contains(values, value) },
 		"logoutURL":    func() string { return s.logoutURL },
 		// t translates a German text (escaped, U+00A0 as &nbsp; like the markup
 		// before), th one with markup (catalog only, arguments escaped)
@@ -408,6 +421,9 @@ func (s *Server) funcs(l string) template.FuncMap {
 }
 
 func (s *Server) render(w http.ResponseWriter, r *http.Request, status int, page string, v view) {
+	if strings.Contains(page, "assistant") {
+		w.Header().Set("Cache-Control", "no-store")
+	}
 	if v.User.UID == "" {
 		v.User, _ = IdentityFrom(r.Context())
 	}
@@ -416,6 +432,19 @@ func (s *Server) render(w http.ResponseWriter, r *http.Request, status int, page
 	v.Setup = s.onboard != nil
 	v.Settings = s.settings != nil
 	v.TaskAssistants = s.taskAssistants != nil
+	v.Knowledge = s.knowledge != nil && !s.knowledgeReadOnly
+	v.KnowledgeWrite = v.Knowledge
+	if s.knowledge != nil && status < 400 && v.User.UID != "" {
+		actor, err := s.knowledge.KnowledgeActor(r.Context(), v.User.UID)
+		if err == nil {
+			v.InvitationAccount = actor.Stamp
+			v.TeamInvitations, err = s.knowledge.TeamInvitations(r.Context(), actor)
+		}
+		if err != nil && !errors.Is(err, store.ErrNotFound) {
+			s.serverError(w, r, err)
+			return
+		}
+	}
 	v.Admin = s.isAdmin(v.User)
 	v.Feedback = s.feedback != nil
 	l := lang(r)

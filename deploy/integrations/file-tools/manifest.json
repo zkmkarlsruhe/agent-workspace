@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "name": "file-tools",
+  "version": "0.1.0",
+  "runs": "builtin",
+  "tools": [
+    "background_remove",
+    "raster_to_vector",
+    "svg_create",
+    "svg_edit",
+    "image_transform",
+    "pdf_to_text",
+    "handwriting_to_text"
+  ],
+  "scopes": [
+    "workspace:read",
+    "workspace:write"
+  ],
+  "health": "optional",
+  "requires_opencode": ">=2.2.0 <2.3"
+}

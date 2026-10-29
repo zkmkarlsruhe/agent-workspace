@@ -49,6 +49,39 @@ func TestRuntimeToolSpec(t *testing.T) {
 	}
 }
 
+func TestRuntimeOfficeSpec(t *testing.T) {
+	f, px := setup(t)
+	c := officeCreate()
+	px.(*Proxy).OfficeImage = c.Image
+	dir, err := os.MkdirTemp("", "dp")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(dir)
+	sock := filepath.Join(dir, "s")
+	ln, err := net.Listen("unix", sock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := &http.Server{Handler: px}
+	go srv.Serve(ln)
+	t.Cleanup(func() { srv.Close() })
+	t.Setenv("DOCKER_HOST", "unix://"+sock)
+	d, err := runtime.NewDocker()
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Exercise the real Office dockerSpec, not just the hand-built policy fixture.
+	err = d.Create(context.Background(), runtime.Spec{
+		Name: "oc-user4-office", Image: c.Image, Office: true,
+		Network: "oc-u4", IP: netip.MustParseAddr("10.90.4.11"),
+		Labels: c.Labels, Cmd: c.Cmd, Env: c.Env,
+	})
+	if err != nil || len(f.got) == 0 || !strings.HasSuffix(f.got[len(f.got)-1], "/containers/create") {
+		t.Fatalf("office create through the proxy: %v %v", err, f.got)
+	}
+}
+
 // TestLive drives the real runtime code through the proxy against the local
 // engine, only with OC_DOCKER_IT=1 (socket at /var/run/docker.sock).
 // OC_DOCKER_IT_PROXY=<socket> uses a running oc-dockerproxy instead (the

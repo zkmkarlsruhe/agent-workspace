@@ -1,0 +1,32 @@
+{{define "title"}}{{if .D.Page.Title}}{{.D.Page.Title}}{{else}}{{t "New page"}}{{end}}{{end}}
+{{define "content"}}
+<p class="breadcrumb"><a href="/knowledge">{{t "Knowledge"}}</a> / <a href="/knowledge/{{.D.Collection.ID}}">{{.D.Collection.Title}}</a></p>
+<h1>{{if .D.Page.Title}}{{.D.Page.Title}}{{else}}{{t "New page"}}{{end}}</h1>
+<p>{{t "Audience"}}: {{if .D.Collection.TeamID}}{{.D.Collection.TeamName}}{{else}}{{t "Personal"}}{{end}}</p>
+{{with .D.Error}}<p role="alert">{{.}}</p>{{end}}
+{{if .D.Page.Parent}}<p><a href="/knowledge/{{.D.Collection.ID}}/pages/{{.D.Page.Parent}}">{{t "Parent page"}}</a></p>{{end}}
+{{if .D.Page.Revision}}<p><a href="/knowledge/{{.D.Collection.ID}}/pages/{{.D.Page.ID}}/download?revision={{.D.Page.Revision}}">{{t "Download this revision"}}</a></p><p>{{t "Revision"}} {{.D.Page.Revision}} · <a href="/knowledge/{{.D.Collection.ID}}/pages/{{.D.Page.ID}}?revision={{.D.Page.Revision}}">{{t "Link to this revision"}}</a></p>{{end}}
+{{if .D.Preview}}<article class="card section">{{.D.Preview}}</article>{{end}}
+{{if .D.Page.Sources}}<h2>{{t "Sources"}}</h2><pre class="support-message">{{.D.Page.Sources}}</pre>{{end}}
+{{if .D.Collection.Writable}}
+<form class="form section" method="post" action="/knowledge/{{.D.Collection.ID}}/pages/{{.D.Page.ID}}">
+<input type="hidden" name="account" value="{{.D.Actor.Stamp}}"><input type="hidden" name="revision" value="{{.D.Page.Revision}}">
+<div class="field"><label for="page-title">{{t "Title"}}</label><input class="input" id="page-title" name="title" value="{{.D.Page.Title}}" maxlength="100" required></div>
+<div class="field"><label for="page-parent">{{t "Parent page"}}</label><select class="input" id="page-parent" name="parent"><option value="">{{t "No parent page"}}</option>{{range .D.Pages}}{{if ne .ID $.D.Page.ID}}<option value="{{.ID}}"{{if eq .ID $.D.Page.Parent}} selected{{end}}>{{.Title}}{{if .Archived}} · {{t "Archived"}}{{end}}</option>{{end}}{{end}}</select></div>
+<div class="field"><label for="page-body">{{t "Content (Markdown)"}}</label><textarea class="textarea" id="page-body" name="body" rows="18" maxlength="131072">{{.D.Page.Body}}</textarea></div>
+<div class="field"><label for="page-sources">{{t "Sources and capture dates"}}</label><textarea class="textarea" id="page-sources" name="sources" rows="4" maxlength="16384">{{.D.Page.Sources}}</textarea></div>
+<div class="field"><label for="page-reason">{{t "Change reason"}}</label><input class="input" id="page-reason" name="reason" value="{{.D.Page.Reason}}" maxlength="1000"></div>
+<label for="page-archived"><input id="page-archived" type="checkbox" name="archived" value="true"{{if .D.Page.Archived}} checked{{end}}> {{t "Archived"}}</label>
+{{if and .D.Current (ne .D.Current .D.Page.Revision)}}
+<p><a href="/knowledge/{{.D.Collection.ID}}/pages/{{.D.Page.ID}}?revision={{.D.Current}}" target="_blank" rel="noopener">{{t "Open the current saved version to compare"}} ({{.D.Current}})</a></p>
+<input type="hidden" name="current_revision" value="{{.D.Current}}"><label for="reviewed-current"><input id="reviewed-current" type="checkbox" name="reviewed" value="true" required> {{t "I reviewed the current version and want to save this draft as its next revision."}}</label>
+{{end}}
+<button class="btn" type="submit" name="preview" value="true" formnovalidate>{{t "Preview"}}</button> <button class="btn btn--primary" type="submit">{{t "Save revision"}}</button>
+</form>
+{{end}}
+{{if .D.History}}<h2>{{t "Revision history"}}</h2>
+<p>{{t "The latest 100 revisions are listed. Open an older revision by number."}}</p>
+<form class="form" method="get" action="/knowledge/{{.D.Collection.ID}}/pages/{{.D.Page.ID}}"><label for="open-revision">{{t "Revision"}}</label><input class="input" id="open-revision" type="number" name="revision" min="1" max="{{.D.Current}}" value="{{.D.Page.Revision}}" required><button class="btn" type="submit">{{t "Open revision"}}</button></form><ul>{{range .D.History}}<li><a href="/knowledge/{{.CollectionID}}/pages/{{.ID}}?revision={{.Revision}}">{{t "Revision"}} {{.Revision}}: {{.Title}}</a> · {{.Reason}}
+{{if $.D.Collection.Writable}}<form method="post" action="/knowledge/{{.CollectionID}}/pages/{{.ID}}/restore"><input type="hidden" name="account" value="{{$.D.Actor.Stamp}}"><input type="hidden" name="revision" value="{{$.D.Current}}"><input type="hidden" name="restore" value="{{.Revision}}"><button class="btn" type="submit">{{t "Restore as new revision"}}</button></form>{{end}}</li>{{end}}</ul>{{end}}
+{{if and .D.Page.Archived (eq .D.Collection.Role "admin")}}<details class="section"><summary>{{t "Permanently delete page"}}</summary><p>{{t "Move child pages first. All revisions of this page will be deleted."}}</p><form method="post" action="/knowledge/{{.D.Collection.ID}}/pages/{{.D.Page.ID}}/purge"><input type="hidden" name="account" value="{{.D.Actor.Stamp}}"><input type="hidden" name="revision" value="{{.D.Page.Revision}}"><label for="page-purge"><input id="page-purge" type="checkbox" name="confirm" value="purge" required> {{t "Delete permanently, including history"}}</label><button class="btn" type="submit">{{t "Delete permanently"}}</button></form></details>{{end}}
+{{end}}

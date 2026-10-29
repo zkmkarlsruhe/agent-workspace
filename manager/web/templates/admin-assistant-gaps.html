@@ -1,0 +1,16 @@
+{{define "title"}}{{t "Knowledge gaps"}}{{end}}
+{{define "content"}}
+{{template "admin-nav" "gaps"}}
+<h1>{{t "Knowledge gaps"}}</h1>
+<p>{{t "Reviewed summaries only; no transcripts. Treat submissions as potentially personal data. Newest 200 entries are shown."}}</p>
+{{range .D}}
+<section class="card section"><h2>{{.Assistant}}: {{.Category}}</h2><pre class="support-message">{{.Summary}}</pre><pre class="support-message">{{.Sources}}</pre>
+<p>{{t "Expires"}}: {{datetime .Expires}}</p>
+<form method="post" action="/admin/assistant-gaps/{{.ID}}" class="form">
+<input type="hidden" name="revision" value="{{.Revision}}">
+<label class="field__label" for="guidance-{{.ID}}">{{t "Approved guidance link (HTTPS; empty reopens)"}}</label>
+<input class="input" id="guidance-{{.ID}}" name="guidance" type="url" maxlength="2000" value="{{.Guidance}}">
+<button class="btn" type="submit">{{t "Save"}}</button>
+</form></section>
+{{else}}<p>{{t "No knowledge gaps submitted."}}</p>{{end}}
+{{end}}
