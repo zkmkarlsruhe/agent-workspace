@@ -23,7 +23,7 @@ Privacy and Delete account. Environment controls remain accessible through Help.
 Assistants use `/assistants` and `/new?assistant=<id>`; personal settings use
 `/settings`; Capabilities keeps `/tools`. Old links and form parameters remain
 compatible. Instance definitions now use `assistants:`; `profiles:` is accepted
-for one release with a deprecation warning. See [instance naming and compatibility](https://github.com/zkmkarlsruhe/agent-workspace-docs/blob/main/instance.md).
+for one release with a deprecation warning. See [instance naming and compatibility](https://github.com/zkmkarlsruhe/agent-workspace-docs/blob/main/docs/instance.md).
 
 ## What it provides
 
@@ -57,8 +57,8 @@ files and runtime state live on quota-controlled host storage. Runtimes have
 private networks and restricted egress. Model credentials remain outside
 them. Containers share the host kernel; this is not VM isolation.
 
-Read the [architecture](https://github.com/zkmkarlsruhe/agent-workspace-docs/blob/main/architecture.md), [privacy and retention
-behavior](https://github.com/zkmkarlsruhe/agent-workspace-docs/blob/main/privacy.md), and [architecture decisions](https://github.com/zkmkarlsruhe/agent-workspace-docs/blob/main/architecture.md#decisions).
+Read the [architecture](https://github.com/zkmkarlsruhe/agent-workspace-docs/blob/main/docs/architecture.md), [privacy and retention
+behavior](https://github.com/zkmkarlsruhe/agent-workspace-docs/blob/main/docs/privacy.md), and [architecture decisions](https://github.com/zkmkarlsruhe/agent-workspace-docs/blob/main/docs/architecture.md#decisions).
 
 ## Quick start
 

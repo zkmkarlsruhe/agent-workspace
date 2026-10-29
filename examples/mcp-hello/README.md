@@ -12,7 +12,7 @@ The default listener is `127.0.0.1:8081`, endpoint `/mcp`. For a container,
 bind the container interface with `-listen=0.0.0.0:8081` and do not publish the port.
 This example has no authentication: restrict access to the central gateway.
 
-See [Build and connect an MCP server](https://github.com/zkmkarlsruhe/agent-workspace-docs/blob/main/mcp-server.md) for registration,
+See [Build and connect an MCP server](https://github.com/zkmkarlsruhe/agent-workspace-docs/blob/main/docs/mcp-server.md) for registration,
 the manifest's current limits, and assistant knowledge sources.
 
 The complete opt-in overlay is in [deploy/example/mcp-hello](../../deploy/example/mcp-hello).
